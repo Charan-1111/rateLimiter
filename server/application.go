@@ -1,21 +1,26 @@
 package server
 
+import (
+	"goapp/algorithms"
+	"goapp/utils"
+)
+
 type Application struct {
-	config *utils.Config
+	config      *utils.Config
+	tokenBucket *algorithms.TokenBucket
 }
 
-func NewApplication(filePath) (*Application, error) {
+func NewApplication(filePath string) (*Application, error) {
 	// Load the configuration file
 	config := &utils.Config{}
-	if err := utils.LoadConfig(filePath); err != nil {
+	if err := config.LoadConfig(filePath); err != nil {
 		return nil, err
 	}
 
 	tokenBucket := algorithms.NewTokenBucket(config.MaxTokens)
 
-	
-
 	return &Application{
-		config: config,
+		config:      config,
+		tokenBucket: tokenBucket,
 	}, nil
 }

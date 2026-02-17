@@ -1,8 +1,16 @@
 package main
 
+import (
+	"fmt"
+
+	"goapp/server"
+)
+
 func main() {
-	app, err := server.NewApplication(); err != nil {
-		log.Error("Error creating the application, retrying...")
+	filePath := "manifest/config.json"
+	_, err := server.NewApplication(filePath)
+	if err != nil {
+		fmt.Println("Error creating the application, retrying...")
 		return
 	}
 }

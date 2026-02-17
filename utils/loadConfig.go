@@ -11,7 +11,8 @@ type Config struct {
 }
 
 func (config *Config) LoadConfig(filePath string) error {
-	fileBytes, err := os.ReadFile(filePath); err != nil {
+	fileBytes, err := os.ReadFile(filePath)
+	if err != nil {
 		return err
 	}
 
