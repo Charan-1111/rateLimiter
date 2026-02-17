@@ -1,0 +1,23 @@
+package utils
+
+import (
+	"os"
+
+	"github.com/bytedance/sonic"
+)
+
+type Config struct {
+	MaxTokens int `json:"maxTokens"`
+}
+
+func (config *Config) LoadConfig(filePath string) error {
+	fileBytes, err := os.ReadFile(filePath); err != nil {
+		return err
+	}
+
+	if err := sonic.Unmarshal(fileBytes, config); err != nil {
+		return err
+	}
+
+	return nil
+} 
