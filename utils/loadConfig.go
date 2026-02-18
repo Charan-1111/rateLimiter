@@ -7,7 +7,8 @@ import (
 )
 
 type Config struct {
-	MaxTokens int `json:"maxTokens"`
+	MaxTokens  float64 `json:"maxTokens"`
+	RefillRate float64 `json:"refillRate"`
 }
 
 func (config *Config) LoadConfig(filePath string) error {
@@ -21,4 +22,4 @@ func (config *Config) LoadConfig(filePath string) error {
 	}
 
 	return nil
-} 
+}

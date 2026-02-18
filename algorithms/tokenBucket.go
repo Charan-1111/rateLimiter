@@ -1,34 +1,63 @@
 package algorithms
 
-import "fmt"
+import (
+	"context"
+	"fmt"
+	"sync"
+	"time"
+)
+
+type RateLimiter interface {
+	Allow(ctx context.Context, key string) (bool, error)
+}
 
 type TokenBucket struct {
-	maxTokens       int
-	tokensAvailable []string
-	tokensQueue     []string
+	maxTokens  float64
+	tokens     float64
+	lastRefill time.Time
+	refillRate float64
+	mu         sync.Mutex
 }
 
-func NewTokenBucket(maxTokens int) *TokenBucket {
+func NewTokenBucket(maxTokens, refillRate float64) *TokenBucket {
 	return &TokenBucket{
-		maxTokens:       maxTokens,
-		tokensAvailable: make([]string, maxTokens),
-		tokensQueue:     make([]string, 0),
+		maxTokens:  maxTokens,
+		tokens:     maxTokens,
+		lastRefill: time.Now(),
+		refillRate: float64(refillRate),
 	}
-}
-
-func (tb *TokenBucket) AddTokens() {
-	// this function is going to run periodically
-	if tb.IsBucketFull() {
-		fmt.Println("Bucket is full cannot add tokens")
-		return
-	}
-
 }
 
 func (tb *TokenBucket) IsBucketFull() bool {
-	return len(tb.tokensAvailable) == tb.maxTokens
+	return tb.tokens == tb.maxTokens
 }
 
 func (tb *TokenBucket) IsBucketEmpty() bool {
-	return len(tb.tokensAvailable) == 0
+	return tb.tokens == 0
+}
+
+func (tb *TokenBucket) RefillTokens() {
+	tb.tokens = tb.tokens + (time.Since(tb.lastRefill).Seconds() * tb.refillRate)
+	if tb.tokens >= tb.maxTokens {
+		tb.tokens = tb.maxTokens
+	}
+	tb.lastRefill = time.Now()
+}
+
+
+func (tb *TokenBucket) Allow(ctx context.Context, key string) (bool, error) {
+	tb.mu.Lock()
+	defer tb.mu.Unlock()
+
+	tb.RefillTokens()
+
+	if tb.IsBucketEmpty() {
+		return false, fmt.Errorf("bucket is empty, request is getting denied")
+	}
+
+	fmt.Println("token available, request is getting proceed")
+
+	tb.tokens -= 1
+
+	return true, nil
 }

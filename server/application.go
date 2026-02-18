@@ -17,7 +17,7 @@ func NewApplication(filePath string) (*Application, error) {
 		return nil, err
 	}
 
-	tokenBucket := algorithms.NewTokenBucket(config.MaxTokens)
+	tokenBucket := algorithms.NewTokenBucket(config.MaxTokens, config.RefillRate)
 
 	return &Application{
 		config:      config,

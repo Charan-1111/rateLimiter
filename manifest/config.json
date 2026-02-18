@@ -1,3 +1,4 @@
 {
-    "maxTokens": 10
+    "maxTokens": 10,
+    "refillRate": 1
 }
