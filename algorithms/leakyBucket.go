@@ -8,21 +8,20 @@ import (
 )
 
 type LeakyBucket struct {
-	maxTokens  float64
-	tokens     float64
-	leakRate   float64
-	lastLeak   time.Time
-	mu         sync.Mutex
+	maxTokens float64
+	tokens    float64
+	leakRate  float64
+	lastLeak  time.Time
+	mu        sync.Mutex
 }
 
 func NewLeakyBucket(maxTokens, leakRate float64) *LeakyBucket {
 	return &LeakyBucket{
-		maxTokens:  maxTokens,
-		leakRate:   leakRate,
-		lastLeak:   time.Now(),
+		maxTokens: maxTokens,
+		leakRate:  leakRate,
+		lastLeak:  time.Now(),
 	}
 }
-
 
 func (lb *LeakyBucket) IsBucketFull() bool {
 	return lb.tokens >= lb.maxTokens
@@ -52,6 +51,11 @@ func (lb *LeakyBucket) Allow(ctx context.Context, key string) (bool, error) {
 func (lb *LeakyBucket) LeakTokens() {
 	lb.mu.Lock()
 	defer lb.mu.Unlock()
+
+	if lb.IsBucketEmpty() {
+		fmt.Println("Bucket is empty")
+		return
+	}
 
 	now := time.Now()
 
