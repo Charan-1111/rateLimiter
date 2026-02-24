@@ -3,8 +3,12 @@ package algorithms
 import (
 	"context"
 	"fmt"
+	"goapp/constants"
+	"goapp/store"
 	"sync"
 	"time"
+
+	"github.com/redis/go-redis/v9"
 )
 
 type RateLimiter interface {
@@ -31,16 +35,31 @@ func NewTokenBucket(maxTokens, refillRate float64) *TokenBucket {
 	}
 }
 
-
 func (tb *TokenBucket) Allow(ctx context.Context, tenantId, userId string) (bool, error) {
 	tb.mu.Lock()
 	defer tb.mu.Unlock()
+
+	// get the information from the redis for the key
+	redisKey := fmt.Sprintf("%s:%s:%s:%s", constants.KeyRateLimit, constants.AlgorithmTokenBucket, tenantId, userId)
+
+	val, err := store.Rdb.Get(ctx, redisKey).Result()
+	if err == redis.Nil {
+		tb.keys[userId] = &Tokens{
+			tokens:     tb.maxTokens,
+			lastRefill: time.Now(),
+		}
+	} else if err != nil {
+		fmt.Println("error getting the key from redis", err)
+		return false, err
+	} else {
+		fmt.Println(val)
+	}
 
 	// refill the tokens for this key
 
 	if _, ok := tb.keys[userId]; !ok {
 		tb.keys[userId] = &Tokens{
-			tokens: tb.maxTokens,
+			tokens:     tb.maxTokens,
 			lastRefill: time.Now(),
 		}
 	}
