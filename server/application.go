@@ -1,13 +1,15 @@
 package server
 
 import (
-	"goapp/algorithms"
+	"goapp/store"
 	"goapp/utils"
+
+	"github.com/redis/go-redis/v9"
 )
 
 type Application struct {
-	config      *utils.Config
-	tokenBucket *algorithms.TokenBucket
+	config *utils.Config
+	rdb    *redis.Client
 }
 
 func NewApplication(filePath string) (*Application, error) {
@@ -17,10 +19,11 @@ func NewApplication(filePath string) (*Application, error) {
 		return nil, err
 	}
 
-	tokenBucket := algorithms.NewTokenBucket(config.MaxTokens, config.RefillRate)
+	// Initialize Redis
+	rdb := store.InitRedis(&config.Redis)
 
 	return &Application{
-		config:      config,
-		tokenBucket: tokenBucket,
+		config: config,
+		rdb:    rdb,
 	}, nil
 }

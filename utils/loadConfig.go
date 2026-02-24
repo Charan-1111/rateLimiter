@@ -1,14 +1,16 @@
 package utils
 
 import (
+	"goapp/models"
 	"os"
 
 	"github.com/bytedance/sonic"
 )
 
 type Config struct {
-	MaxTokens  float64 `json:"maxTokens"`
-	RefillRate float64 `json:"refillRate"`
+	Redis      models.RedisConfig `json:"redis"`
+	MaxTokens  float64            `json:"maxTokens"`
+	RefillRate float64            `json:"refillRate"`
 }
 
 func (config *Config) LoadConfig(filePath string) error {
