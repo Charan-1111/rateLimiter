@@ -16,19 +16,19 @@ type RateLimiter interface {
 }
 
 type Tokens struct {
-	tokens     float64
-	lastRefill time.Time
+	Tokens     float64
+	LastRefill time.Time
 }
 
 type TokenBucket struct {
-	maxTokens  float64
-	refillRate float64
+	MaxTokens  float64
+	RefillRate float64
 }
 
 func NewTokenBucket(maxTokens, refillRate float64) *TokenBucket {
 	return &TokenBucket{
-		maxTokens:  maxTokens,
-		refillRate: float64(refillRate),
+		MaxTokens:  maxTokens,
+		RefillRate: float64(refillRate),
 	}
 }
 
@@ -41,8 +41,8 @@ func (tb *TokenBucket) Allow(ctx context.Context, tenantId, userId string) (bool
 	val, err := store.Rdb.Get(ctx, redisKey).Result()
 	if err == redis.Nil {
 		fmt.Println("redis is null")
-		tokens.tokens = tb.maxTokens
-		tokens.lastRefill = time.Now()
+		tokens.Tokens = tb.MaxTokens
+		tokens.LastRefill = time.Now()
 	} else if err != nil {
 		fmt.Println("error getting the key from redis", err)
 		return false, err
@@ -56,21 +56,21 @@ func (tb *TokenBucket) Allow(ctx context.Context, tenantId, userId string) (bool
 	}
 
 	// refill the tokens for this key
-	tokens.tokens = tokens.tokens + (time.Since(tokens.lastRefill).Minutes() * tb.refillRate)
-	if tokens.tokens >= tb.maxTokens {
-		tokens.tokens = tb.maxTokens
+	tokens.Tokens = tokens.Tokens + (time.Since(tokens.LastRefill).Minutes() * tb.RefillRate)
+	if tokens.Tokens >= tb.MaxTokens {
+		tokens.Tokens = tb.MaxTokens
 	}
-	tokens.lastRefill = time.Now()
+	tokens.LastRefill = time.Now()
 
 	fmt.Println("tokens : ", tokens)
 
-	if tokens.tokens < 1 {
+	if tokens.Tokens < 1 {
 		return false, fmt.Errorf("bucket is empty, request is getting denied")
 	}
 
 	fmt.Println("token available, request is getting proceed")
 
-	tokens.tokens = tokens.tokens - 1
+	tokens.Tokens = tokens.Tokens - 1
 
 	// Set the information in the redis
 	fmt.Println("tokens : ", tokens)
