@@ -27,7 +27,7 @@ func TestTokenBucket_FractionalTokens(t *testing.T) {
 	// Try to consume 1 token. Should FAIL because we only have 0.5.
 	allowed, _ := tb.Allow(ctx, "test", "test")
 	if allowed {
-		t.Errorf("Fractional check failed: Allowed request with < 1 token available. Current tokens: %f", tb.keys["test"].tokens)
+		t.Errorf("Fractional check failed: Allowed request with < 1 token available. Current tokens: %f", "")
 	} else {
 		t.Log("Correctly denied request with partial token.")
 	}

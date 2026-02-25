@@ -7,11 +7,17 @@ import (
 	"goapp/store"
 	"time"
 
+	"github.com/bytedance/sonic"
 	"github.com/redis/go-redis/v9"
 )
 
 type RateLimiter interface {
 	Allow(ctx context.Context, tenantId string, userId string) (bool, error)
+}
+
+type Tokens struct {
+	tokens     float64
+	lastRefill time.Time
 }
 
 type TokenBucket struct {
@@ -27,10 +33,7 @@ func NewTokenBucket(maxTokens, refillRate float64) *TokenBucket {
 }
 
 func (tb *TokenBucket) Allow(ctx context.Context, tenantId, userId string) (bool, error) {
-	var (
-		tokens     float64
-		lastRefill time.Time
-	)
+	tokens := &Tokens{}
 
 	// get the information from the redis for the key
 	redisKey := fmt.Sprintf("%s:%s:%s:%s", constants.KeyRateLimit, constants.AlgorithmTokenBucket, tenantId, userId)
@@ -38,36 +41,47 @@ func (tb *TokenBucket) Allow(ctx context.Context, tenantId, userId string) (bool
 	val, err := store.Rdb.Get(ctx, redisKey).Result()
 	if err == redis.Nil {
 		fmt.Println("redis is null")
-		tokens = tb.maxTokens
-		lastRefill = time.Now()
+		tokens.tokens = tb.maxTokens
+		tokens.lastRefill = time.Now()
 	} else if err != nil {
 		fmt.Println("error getting the key from redis", err)
 		return false, err
 	} else {
-		fmt.Println(val)
+		// unmarshal the value
+		err = sonic.Unmarshal([]byte(val), &tokens)
+		if err != nil {
+			fmt.Println("error unmarshalling the value", err)
+			return false, err
+		}
 	}
 
 	// refill the tokens for this key
-	tokens = tokens + (time.Since(lastRefill).Minutes() * tb.refillRate)
-	if tokens >= tb.maxTokens {
-		tokens = tb.maxTokens
+	tokens.tokens = tokens.tokens + (time.Since(tokens.lastRefill).Minutes() * tb.refillRate)
+	if tokens.tokens >= tb.maxTokens {
+		tokens.tokens = tb.maxTokens
 	}
-	lastRefill = time.Now()
+	tokens.lastRefill = time.Now()
 
 	fmt.Println("tokens : ", tokens)
 
-	if tokens < 1 {
+	if tokens.tokens < 1 {
 		return false, fmt.Errorf("bucket is empty, request is getting denied")
 	}
 
 	fmt.Println("token available, request is getting proceed")
 
-	tokens = tokens - 1
+	tokens.tokens = tokens.tokens - 1
 
 	// Set the information in the redis
 	fmt.Println("tokens : ", tokens)
 
-	err = store.Rdb.Set(ctx, redisKey, tokens, time.Second*60).Err()
+	marshaledVal, err := sonic.Marshal(tokens)
+	if err != nil {
+		fmt.Println("Error marshaling the error : ", err)
+		return false, err
+	}
+
+	err = store.Rdb.Set(ctx, redisKey, marshaledVal, time.Second*60).Err()
 	if err != nil {
 		fmt.Println("error setting the key in redis", err)
 		return false, err
