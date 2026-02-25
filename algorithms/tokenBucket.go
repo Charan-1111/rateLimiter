@@ -5,49 +5,41 @@ import (
 	"fmt"
 	"goapp/constants"
 	"goapp/store"
-	"sync"
 	"time"
 
 	"github.com/redis/go-redis/v9"
 )
 
 type RateLimiter interface {
-	Allow(ctx context.Context, key string) (bool, error)
-}
-
-type Tokens struct {
-	tokens     float64
-	lastRefill time.Time
+	Allow(ctx context.Context, tenantId string, userId string) (bool, error)
 }
 
 type TokenBucket struct {
 	maxTokens  float64
-	keys       map[string]*Tokens
 	refillRate float64
-	mu         sync.Mutex
 }
 
 func NewTokenBucket(maxTokens, refillRate float64) *TokenBucket {
 	return &TokenBucket{
 		maxTokens:  maxTokens,
-		keys:       make(map[string]*Tokens),
 		refillRate: float64(refillRate),
 	}
 }
 
 func (tb *TokenBucket) Allow(ctx context.Context, tenantId, userId string) (bool, error) {
-	tb.mu.Lock()
-	defer tb.mu.Unlock()
+	var (
+		tokens     float64
+		lastRefill time.Time
+	)
 
 	// get the information from the redis for the key
 	redisKey := fmt.Sprintf("%s:%s:%s:%s", constants.KeyRateLimit, constants.AlgorithmTokenBucket, tenantId, userId)
 
 	val, err := store.Rdb.Get(ctx, redisKey).Result()
 	if err == redis.Nil {
-		tb.keys[userId] = &Tokens{
-			tokens:     tb.maxTokens,
-			lastRefill: time.Now(),
-		}
+		fmt.Println("redis is null")
+		tokens = tb.maxTokens
+		lastRefill = time.Now()
 	} else if err != nil {
 		fmt.Println("error getting the key from redis", err)
 		return false, err
@@ -56,27 +48,30 @@ func (tb *TokenBucket) Allow(ctx context.Context, tenantId, userId string) (bool
 	}
 
 	// refill the tokens for this key
-
-	if _, ok := tb.keys[userId]; !ok {
-		tb.keys[userId] = &Tokens{
-			tokens:     tb.maxTokens,
-			lastRefill: time.Now(),
-		}
+	tokens = tokens + (time.Since(lastRefill).Minutes() * tb.refillRate)
+	if tokens >= tb.maxTokens {
+		tokens = tb.maxTokens
 	}
+	lastRefill = time.Now()
 
-	tb.keys[userId].tokens = tb.keys[userId].tokens + (time.Since(tb.keys[userId].lastRefill).Seconds() * tb.refillRate)
-	if tb.keys[userId].tokens >= tb.maxTokens {
-		tb.keys[userId].tokens = tb.maxTokens
-	}
-	tb.keys[userId].lastRefill = time.Now()
+	fmt.Println("tokens : ", tokens)
 
-	if tb.keys[userId].tokens < 1 {
+	if tokens < 1 {
 		return false, fmt.Errorf("bucket is empty, request is getting denied")
 	}
 
 	fmt.Println("token available, request is getting proceed")
 
-	tb.keys[userId].tokens -= 1
+	tokens = tokens - 1
+
+	// Set the information in the redis
+	fmt.Println("tokens : ", tokens)
+
+	err = store.Rdb.Set(ctx, redisKey, tokens, time.Second*60).Err()
+	if err != nil {
+		fmt.Println("error setting the key in redis", err)
+		return false, err
+	}
 
 	return true, nil
 }
