@@ -3,67 +3,83 @@ package algorithms
 import (
 	"context"
 	"fmt"
+	"goapp/constants"
+	"goapp/store"
 	"sync"
 	"time"
+
+	"github.com/bytedance/sonic"
+	"github.com/redis/go-redis/v9"
 )
 
+type LeakyTokens struct {
+	Tokens   float64
+	LastLeak time.Time
+}
+
 type LeakyBucket struct {
-	maxTokens float64
-	tokens    float64
-	leakRate  float64
-	lastLeak  time.Time
+	MaxTokens float64
+	LeakRate  float64
 	mu        sync.Mutex
 }
 
 func NewLeakyBucket(maxTokens, leakRate float64) *LeakyBucket {
 	return &LeakyBucket{
-		maxTokens: maxTokens,
-		leakRate:  leakRate,
-		lastLeak:  time.Now(),
+		MaxTokens: maxTokens,
+		LeakRate:  leakRate,
 	}
 }
 
-func (lb *LeakyBucket) IsBucketFull() bool {
-	return lb.tokens >= lb.maxTokens
-}
+func (lb *LeakyBucket) Allow(ctx context.Context, tenantId, userId string) (bool, error) {
+	tokens := &LeakyTokens{}
 
-func (lb *LeakyBucket) IsBucketEmpty() bool {
-	return lb.tokens == 0
-}
-
-func (lb *LeakyBucket) Allow(ctx context.Context, key string) (bool, error) {
-	lb.mu.Lock()
-	defer lb.mu.Unlock()
-
-	lb.LeakTokens()
-
-	if lb.IsBucketFull() {
-		return false, fmt.Errorf("bucket is full, request is getting denied")
+	// read data from redis
+	redisKey := fmt.Sprintf("%s:%s:%s:%s", constants.KeyRateLimit, constants.AlgorithmLeakyBucket, tenantId, userId)
+	val, err := store.Rdb.Get(ctx, redisKey).Result()
+	if err == redis.Nil {
+		tokens.Tokens = 0
+		tokens.LastLeak = time.Now()
+	} else if err != nil {
+		fmt.Println("error getting the key from redis", err)
+		return false, err
+	} else {
+		// unmarshal the value
+		err = sonic.Unmarshal([]byte(val), &tokens)
+		if err != nil {
+			fmt.Println("error unmarshalling the value", err)
+			return false, err
+		}
 	}
 
-	fmt.Println("bucket is not full, request is getting proceed")
+	// leak the tokens from the bucket
+	now := time.Now()
+	
+	tokens.Tokens = tokens.Tokens - (now.Sub(tokens.LastLeak).Seconds() * lb.LeakRate)
 
-	lb.tokens += 1
+	if tokens.Tokens < 0 {
+		tokens.Tokens = 0
+	}
+	tokens.LastLeak = now
+
+	if tokens.Tokens >= lb.MaxTokens {
+		return false, fmt.Errorf("Bucket is full, request is getting rejected")
+	}
+
+	tokens.Tokens = tokens.Tokens + 1
+	fmt.Println("Request accepted")
+
+	// store the details in the redis
+	marshalVal, err := sonic.Marshal(tokens)
+	if err != nil {
+		fmt.Println("Error marshaling leaky bucket token details : ", err)
+		return false, err
+	}
+
+	err = store.Rdb.Set(ctx, redisKey, marshalVal, time.Second*60).Err()
+	if err != nil {
+		fmt.Println("Error setting the key in redis : ", err)
+		return false, err
+	}
 
 	return true, nil
-}
-
-func (lb *LeakyBucket) LeakTokens() {
-	lb.mu.Lock()
-	defer lb.mu.Unlock()
-
-	if lb.IsBucketEmpty() {
-		fmt.Println("Bucket is empty")
-		return
-	}
-
-	now := time.Now()
-
-	lb.tokens = lb.tokens - (now.Sub(lb.lastLeak).Seconds())*lb.leakRate
-
-	if lb.tokens < 0 {
-		lb.tokens = 0
-	}
-
-	lb.lastLeak = now
 }
