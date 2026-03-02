@@ -4,11 +4,11 @@ import (
 	"context"
 	"fmt"
 	"goapp/constants"
+	"goapp/lua"
 	"goapp/store"
 	"sync"
 	"time"
 
-	"github.com/bytedance/sonic"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -30,64 +30,21 @@ func NewSlidingWindowCounter(window time.Duration, capacity int) *SlidingWindowC
 	}
 }
 
-func (sc *SlidingWindowCounter) Allow(ctx context.Context, tenantId , userId string) (bool, error) {
-	now := time.Now()
+func (sc *SlidingWindowCounter) Allow(ctx context.Context, tenantId, userId string) (bool, error) {
+	now := time.Now().UnixMilli()
 
-	tokens := &SlidingWindowStore{}
-
+	windowMs := sc.window.Milliseconds()
 	// read data from the redis
 	redisKey := fmt.Sprintf("%s:%s:%s:%s", constants.KeyRateLimit, constants.AlgorithmSlidingWindow, tenantId, userId)
 
-	val, err := store.Rdb.Get(ctx, redisKey).Result()
-	if err == redis.Nil {
-		tokens.WindowStart = now.Truncate(sc.window)
-	} else if err != nil {
-		fmt.Println("Error reading data from redis : ", err)
+	swcScript := redis.NewScript(lua.GetSlidingWindowScript())
+
+	_, err := swcScript.Run(ctx, store.Rdb, []string{redisKey}, sc.capacity, windowMs, now, 1).Result()
+	if err != nil {
+		fmt.Println("Error calling the sliding window counter script, rejecting the request : ", err)
 		return false, err
 	} else {
-		// unmarshal the data
-		err := sonic.Unmarshal([]byte(val), tokens)
-		if err != nil {
-			fmt.Println("Error unmarshalling data from redis : ", err)
-			return false, err
-		}
+		fmt.Println("Accepting the request")
 	}
-
-	elapsed := now.Sub(tokens.WindowStart)
-
-	// shift window if needed
-	if elapsed >= sc.window {
-		shift := int(elapsed / sc.window)
-
-		if shift >= 2 {
-			tokens.PreviousCnt = 0
-		} else {
-			tokens.PreviousCnt = tokens.CurrentCnt
-		}
-		tokens.CurrentCnt = 0
-		tokens.WindowStart = now.Truncate(sc.window)
-		elapsed = now.Sub(tokens.WindowStart)
-	}
-
-	// weighted count
-	weight := float64(sc.window-elapsed) / float64(sc.window)
-	effectiveCnt := float64(tokens.CurrentCnt) + float64(tokens.PreviousCnt)*weight
-
-	if effectiveCnt >= float64(sc.capacity) {
-		fmt.Println("Requests rejected")
-		return false, nil
-	}
-
-	tokens.CurrentCnt++
-	fmt.Println("Request accepted")
-
-	// Store the data into redis
-	marshedVal, err := sonic.Marshal(tokens)
-	if err != nil {
-		fmt.Println("Error marshalling data to redis : ", err)
-		return false, err
-	}
-
-	store.Rdb.Set(ctx, redisKey, marshedVal, 2*sc.window)
 	return true, nil
-}
+}	
