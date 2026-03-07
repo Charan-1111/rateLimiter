@@ -1,4 +1,4 @@
-package memoryalgorithms
+package algorithms
 
 import (
 	"context"

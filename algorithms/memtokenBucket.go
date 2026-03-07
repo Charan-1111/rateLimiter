@@ -1,4 +1,4 @@
-package memoryalgorithms
+package algorithms
 
 import (
 	"context"
@@ -21,8 +21,13 @@ type TokenBucket struct {
 	mu       sync.Mutex
 }
 
-type RateLimiter interface {
-	Allow(ctx context.Context, tenantId string, userId string) (bool, error)
+func NewTokenBucketMem(capacity, fillRate float64) *TokenBucket {
+	return &TokenBucket{
+		capacity: capacity,
+		fillRate: fillRate,
+		tokens:   make(map[string]*TokenBucketStore),
+		mu:       sync.Mutex{},
+	}
 }
 
 func (tb *TokenBucket) Allow(ctx context.Context, tenantId, userId string) (bool, error) {
@@ -36,9 +41,12 @@ func (tb *TokenBucket) Allow(ctx context.Context, tenantId, userId string) (bool
 	// Fetch from the cache
 	tokenStore, ok := tb.tokens[key]
 	if !ok {
+		// create a new store if this key hasn't been seen before
 		fmt.Println("Not found in the cache")
-		tokenStore.tokens = tb.capacity
-		tokenStore.lastFill = now
+		tokenStore = &TokenBucketStore{
+			tokens:   tb.capacity,
+			lastFill: now,
+		}
 	}
 
 	// fill the tokens

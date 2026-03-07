@@ -1,4 +1,4 @@
-package memoryalgorithms
+package algorithms
 
 import (
 	"context"
@@ -21,6 +21,15 @@ type LeakyBucket struct {
 	mu       sync.Mutex
 }
 
+func NewLeakyBucketMem(capacity, leakRate float64) *LeakyBucket {
+	return &LeakyBucket{
+		capacity: capacity,
+		leakRate: leakRate,
+		tokens:   make(map[string]*LeakyBucketStore),
+		mu:       sync.Mutex{},
+	}
+}
+
 func (lb *LeakyBucket) Allow(ctx context.Context, tenantId, userId string) (bool, error) {
 	lb.mu.Lock()
 	defer lb.mu.Unlock()
@@ -31,8 +40,11 @@ func (lb *LeakyBucket) Allow(ctx context.Context, tenantId, userId string) (bool
 	// Fetch the details from the cache
 	tokenStore, ok := lb.tokens[key]
 	if !ok {
-		tokenStore.tokens = 0
-		tokenStore.lastLeak = now
+		// allocate a fresh store
+		tokenStore = &LeakyBucketStore{
+			tokens:   0,
+			lastLeak: now,
+		}
 	}
 
 	// leak the tokens

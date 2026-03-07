@@ -12,25 +12,25 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-type SlidingWindowStore struct {
+type SlidingWindowStoreRedis struct {
 	CurrentCnt  int
 	PreviousCnt int
 	WindowStart time.Time
 }
-type SlidingWindowCounter struct {
+type SlidingWindowCounterRedis struct {
 	window   time.Duration
 	capacity int
 	mu       sync.Mutex
 }
 
-func NewSlidingWindowCounter(window time.Duration, capacity int) *SlidingWindowCounter {
-	return &SlidingWindowCounter{
+func NewSlidingWindowCounter(window time.Duration, capacity int) *SlidingWindowCounterRedis {
+	return &SlidingWindowCounterRedis{
 		window:   window,
 		capacity: capacity,
 	}
 }
 
-func (sc *SlidingWindowCounter) Allow(ctx context.Context, tenantId, userId string) (bool, error) {
+func (sc *SlidingWindowCounterRedis) Allow(ctx context.Context, tenantId, userId string) (bool, error) {
 	now := time.Now().UnixMilli()
 
 	windowMs := sc.window.Milliseconds()
@@ -38,6 +38,10 @@ func (sc *SlidingWindowCounter) Allow(ctx context.Context, tenantId, userId stri
 	redisKey := fmt.Sprintf("%s:%s:%s:%s", constants.KeyRateLimit, constants.AlgorithmSlidingWindow, tenantId, userId)
 
 	swcScript := redis.NewScript(lua.GetSlidingWindowScript())
+
+	if store.Rdb == nil {
+		return false, fmt.Errorf("redis client not initialized")
+	}
 
 	_, err := swcScript.Run(ctx, store.Rdb, []string{redisKey}, sc.capacity, windowMs, now, 1).Result()
 	if err != nil {

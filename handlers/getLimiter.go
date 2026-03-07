@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"goapp/constants"
+	"goapp/logic"
 
 	"github.com/gofiber/fiber/v2"
 )
@@ -18,10 +19,6 @@ func (cfg *ConfigHandler) GetLimiter(c *fiber.Ctx) error {
 		})
 	}
 
-	if limiterType == constants.ValeTypeMemory {
-		
-	} else if limiterType == constants.ValueTypeRedis {
-
-	}
+	logic.GetLimiter(cfg.factory, limiterType, algorithm)
 	return nil
 }

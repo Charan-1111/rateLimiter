@@ -2,6 +2,7 @@ package server
 
 import (
 	"fmt"
+	"goapp/algorithms"
 	"goapp/store"
 	"goapp/utils"
 
@@ -9,8 +10,9 @@ import (
 )
 
 type Application struct {
-	config *utils.Config
-	rdb    *redis.Client
+	config  *utils.Config
+	rdb     *redis.Client
+	factory algorithms.LimiterFactory
 }
 
 func NewApplication(filePath string) (*Application, error) {
@@ -23,9 +25,13 @@ func NewApplication(filePath string) (*Application, error) {
 	// Initialize Redis
 	rdb := store.InitRedis(&config.Redis)
 
+	// creating the defautl limiter factory
+	factory := &algorithms.DefaultLimiterFactory{}
+
 	return &Application{
-		config: config,
-		rdb:    rdb,
+		config:  config,
+		rdb:     rdb,
+		factory: factory,
 	}, nil
 }
 
@@ -36,10 +42,12 @@ func (app *Application) StartServer() error {
 	return nil
 }
 
-func (app *Application) StartFiberServer()  {
+func (app *Application) StartFiberServer() {
 	appServer := app.SetupRoutes()
 
 	if err := appServer.Listen(app.config.Ports.FiberServer); err != nil {
 		fmt.Println("Error starting fiber server:", err)
+	} else {
+		fmt.Println("Fiber server started on port", app.config.Ports.FiberServer)
 	}
 }

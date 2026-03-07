@@ -1,4 +1,4 @@
-package memoryalgorithms
+package algorithms
 
 import (
 	"context"
@@ -21,6 +21,15 @@ type SlidingWindow struct {
 	mu       sync.Mutex
 }
 
+func NewSlidingWindowMem(window time.Duration, capacity int) *SlidingWindow {
+	return &SlidingWindow{
+		capacity: capacity,
+		window:   window,
+		tokens:   make(map[string]*SlidingWindowStore),
+		mu:       sync.Mutex{},
+	}
+}
+
 func (sw *SlidingWindow) Allow(ctx context.Context, tenantId, userId string) (bool, error) {
 	sw.mu.Lock()
 	defer sw.mu.Unlock()
@@ -31,9 +40,12 @@ func (sw *SlidingWindow) Allow(ctx context.Context, tenantId, userId string) (bo
 	// fetch the data from the cache
 	tokens, ok := sw.tokens[key]
 	if !ok {
-		tokens.windowStart = now
-		tokens.currentCnt = 0
-		tokens.previousCnt = 0
+		// allocate and initialize new sliding window state
+		tokens = &SlidingWindowStore{
+			windowStart: now,
+			currentCnt:  0,
+			previousCnt: 0,
+		}
 	}
 
 	elapsed := now.Sub(tokens.windowStart)
@@ -41,7 +53,7 @@ func (sw *SlidingWindow) Allow(ctx context.Context, tenantId, userId string) (bo
 	if elapsed >= sw.window {
 		shift := int(elapsed / sw.window)
 
-		if shift >=2 {
+		if shift >= 2 {
 			tokens.previousCnt = 0
 		} else {
 			tokens.previousCnt = tokens.currentCnt

@@ -5,6 +5,8 @@ const (
 	KeyRateLimit = "rate_limit"
 	KeyRateLimitType = "type"
 	KeyAlgo = "algo"
+	KeyTenantId = "tenantId"
+	KeyUserId = "userId"
 
 	// Values
 	ValeTypeMemory = "memory"

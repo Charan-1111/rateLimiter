@@ -1,4 +1,4 @@
-package memoryalgorithms
+package algorithms
 
 import (
 	"context"
@@ -20,6 +20,15 @@ type FixedWindow struct {
 	mu       sync.Mutex
 }
 
+func NewFixedWindowMem(window time.Duration, capacity int) *FixedWindow {
+	return &FixedWindow{
+		capacity: capacity,
+		window:   window,
+		tokens:   make(map[string]*FixedWindowStore),
+		mu:       sync.Mutex{},
+	}
+}
+
 func (fw *FixedWindow) Allow(ctx context.Context, tenantId, userId string) (bool, error) {
 	fw.mu.Lock()
 	defer fw.mu.Unlock()
@@ -33,8 +42,11 @@ func (fw *FixedWindow) Allow(ctx context.Context, tenantId, userId string) (bool
 
 	tokenStore, ok := fw.tokens[key]
 	if !ok {
-		tokenStore.windowIndex = currentWindowIdx
-		tokenStore.tokens = fw.capacity
+		// initialize a new window store
+		tokenStore = &FixedWindowStore{
+			windowIndex: currentWindowIdx,
+			tokens:      fw.capacity,
+		}
 	}
 
 	if currentWindowIdx > tokenStore.windowIndex {
