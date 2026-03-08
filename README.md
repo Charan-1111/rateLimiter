@@ -129,7 +129,3 @@ Contributions are welcome!  Please read [`CONTRIBUTING.md`](CONTRIBUTING.md) for
 ## 🧑‍💻 Maintainers
 
 Maintained by **Leela Guru Charan Avvaru** (charanavvaru11@gmail.com) and the open‑source community.
-
-## ⚖️ License
-
-This project is licensed under the [MIT License](LICENSE).
