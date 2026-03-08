@@ -12,7 +12,7 @@ func GetTokenBucketScript() string {
 	-- Fetch bucket
 	local bucket = redis.call("HMGET", key, "tokens", "last_refill")
 	local tokens = tonumber(bucket[1])
-	local last_refill = tonumber[bucket[2]]
+	local last_refill = tonumber(bucket[2])
 
 	if tokens == nil then
 		tokens = capacity

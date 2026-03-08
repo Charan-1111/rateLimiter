@@ -54,6 +54,8 @@ func (tb *TokenBucketRedis) Allow(ctx context.Context, tenantId, userId string) 
 	if err != nil {
 		fmt.Println("Error running the token bucket script : ", err)
 		return false, err
+	} else {
+		fmt.Println("Accepting the request")
 	}
 
 	return true, nil
