@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"goapp/algorithms"
 	"goapp/logger"
+	"goapp/services"
 	"goapp/store"
 	"goapp/utils"
 
@@ -18,6 +19,7 @@ type Application struct {
 	log     zerolog.Logger
 	db      *pgxpool.Pool
 	rdb     *redis.Client
+	cache   *services.Cache
 	factory algorithms.LimiterFactory
 }
 
@@ -42,11 +44,16 @@ func NewApplication(filePath string) (*Application, error) {
 	// creating the defautl limiter factory
 	factory := &algorithms.DefaultLimiterFactory{}
 
+	// create the cache variable
+
+	cache := services.NewCache()
+
 	return &Application{
 		config:  config,
 		log:     log,
 		db:      db,
 		rdb:     rdb,
+		cache:   cache,
 		factory: factory,
 	}, nil
 }
@@ -54,6 +61,7 @@ func NewApplication(filePath string) (*Application, error) {
 func (app *Application) StartServer() error {
 	// create the tables
 	store.CreateTables(context.Background(), app.db, app.log, app.config.Tables)
+
 	// Start fiber server
 	app.StartFiberServer()
 

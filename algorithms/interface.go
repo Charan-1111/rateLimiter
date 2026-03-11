@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"goapp/constants"
+	"goapp/services"
 
 	"github.com/redis/go-redis/v9"
 )
@@ -13,7 +14,7 @@ type RateLimiter interface {
 }
 
 type LimiterFactory interface {
-	GetLimiter(limiterType, algorithm string) (RateLimiter, error)
+	GetLimiter(limiterType, algorithm string, cache *services.Cache) (RateLimiter, error)
 }
 
 type DefaultLimiterFactory struct{}
@@ -39,7 +40,14 @@ var registry = map[string]map[string]constructor{
 	},
 }
 
-func (f *DefaultLimiterFactory) GetLimiter(limiterType, algorithm string) (RateLimiter, error) {
+func (f *DefaultLimiterFactory) GetLimiter(scope, identifier string, cache *services.Cache) (RateLimiter, error) {
+	policy, exists := cache.GetPolicy(scope, identifier)
+	if !exists {
+		// call the database to get the policy and update the cache
+		return nil, fmt.Errorf("no policy found for scope : %s and identifier : %s", scope, identifier)
+	}
+
+	
 	// Implement logic to create and return the appropriate limiter based on the type and algorithm
 	algo, ok := registry[algorithm]
 	if !ok {

@@ -7,6 +7,8 @@ const (
 	KeyAlgo = "algo"
 	KeyTenantId = "tenantId"
 	KeyUserId = "userId"
+	KeyScope = "scope"
+	KeyIdentifier = "identifier"
 
 	// Values
 	ValeTypeMemory = "memory"

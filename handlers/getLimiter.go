@@ -9,16 +9,16 @@ import (
 
 func (cfg *ConfigHandler) GetLimiter(c *fiber.Ctx) error {
 	queries := c.Queries()
-	limiterType := queries[constants.KeyRateLimitType]
-	algorithm := queries[constants.KeyAlgo]
-
+	scope := queries[constants.KeyScope]
+	identifier := queries[constants.KeyIdentifier]
+	
 	// validate the limiter type and algorithm
-	if limiterType == "" || algorithm == "" {
+	if scope == "" || identifier == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Missing required query parameters: type and algo",
+			"error": "Missing required query parameters: scope and identifier",
 		})
 	}
 
-	logic.GetLimiter(cfg.rdb, cfg.factory, limiterType, algorithm)
+	logic.GetLimiter(cfg.rdb, cfg.factory, cfg.cache, scope, identifier)
 	return nil
 }
