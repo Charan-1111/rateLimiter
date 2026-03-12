@@ -32,23 +32,7 @@ func (c *Cache) LoadCache(ctx context.Context, log zerolog.Logger, db *pgxpool.P
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	rows, err := db.Query(ctx, query)
-	if err != nil {
-		log.Error().Err(err).Msg("Error fetching policies from the database")
-	}
-
-	defer rows.Close()
-
-	for rows.Next() {
-		var policy PolicySchema
-		if err := rows.Scan(&policy); err != nil {
-			log.Error().Err(err).Msg("Error scanning policy from the database")
-			continue
-		}
-
-		cacheKey := policy.Scope + ":" + policy.Identifier
-		c.data[cacheKey] = &policy
-	}
+	c.data = FetchPolicies(ctx, db, log, query)
 }
 
 func (c *Cache) GetPolicy(scope, identifier string) (*PolicySchema, bool) {
@@ -57,5 +41,9 @@ func (c *Cache) GetPolicy(scope, identifier string) (*PolicySchema, bool) {
 
 	cacheKey := scope + ":" + identifier
 	policy, exists := c.data[cacheKey]
+	if !exists {
+		// Fetch from the database
+		
+	}
 	return policy, exists
 }
