@@ -14,50 +14,65 @@ type RateLimiter interface {
 }
 
 type LimiterFactory interface {
-	GetLimiter(limiterType, algorithm string, cache *services.Cache) (RateLimiter, error)
+	GetLimiter(limiterType, algorithm, rateLimitType string, cache *services.Cache) (RateLimiter, error)
 }
 
 type DefaultLimiterFactory struct{}
 
-type constructor func() RateLimiter
+type constructor func(policy *services.PolicySchema) RateLimiter
 
 var registry = map[string]map[string]constructor{
 	constants.AlgorithmTokenBucket: {
-		constants.ValeTypeMemory: func() RateLimiter { return NewTokenBucketMem(10, 1) },
-		constants.ValueTypeRedis: func() RateLimiter { return NewTokenBucket(10, 1) },
+		constants.ValeTypeMemory: func(policy *services.PolicySchema) RateLimiter {
+			return NewTokenBucketMem(float64(policy.Limit), float64(policy.Burst))
+		},
+		constants.ValueTypeRedis: func(policy *services.PolicySchema) RateLimiter {
+			return NewTokenBucket(float64(policy.Limit), float64(policy.Burst))
+		},
 	},
 	constants.AlgorithmLeakyBucket: {
-		constants.ValeTypeMemory: func() RateLimiter { return NewLeakyBucketMem(10, 1) },
-		constants.ValueTypeRedis: func() RateLimiter { return NewLeakyBucket(10, 1) },
+		constants.ValeTypeMemory: func(policy *services.PolicySchema) RateLimiter {
+			return NewLeakyBucketMem(float64(policy.Limit), float64(policy.Burst))
+		},
+		constants.ValueTypeRedis: func(policy *services.PolicySchema) RateLimiter {
+			return NewLeakyBucket(float64(policy.Limit), float64(policy.Burst))
+		},
 	},
 	constants.AlgorithmFixedWindow: {
-		constants.ValeTypeMemory: func() RateLimiter { return NewFixedWindowMem(1, 10) },
-		constants.ValueTypeRedis: func() RateLimiter { return NewFixedWindowCounter(1, 10) },
+		constants.ValeTypeMemory: func(policy *services.PolicySchema) RateLimiter {
+			return NewFixedWindowMem(policy.Window, policy.Limit)
+		},
+		constants.ValueTypeRedis: func(policy *services.PolicySchema) RateLimiter {
+			return NewFixedWindowCounter(policy.Window, int64(policy.Limit))
+		},
 	},
 	constants.AlgorithmSlidingWindow: {
-		constants.ValeTypeMemory: func() RateLimiter { return NewSlidingWindowMem(1, 10) },
-		constants.ValueTypeRedis: func() RateLimiter { return NewSlidingWindowCounter(1, 10) },
+		constants.ValeTypeMemory: func(policy *services.PolicySchema) RateLimiter {
+			return NewSlidingWindowMem(policy.Window, policy.Limit)
+		},
+		constants.ValueTypeRedis: func(policy *services.PolicySchema) RateLimiter {
+			return NewSlidingWindowCounter(policy.Window, policy.Limit)
+		},
 	},
 }
 
-func (f *DefaultLimiterFactory) GetLimiter(scope, identifier string, cache *services.Cache) (RateLimiter, error) {
+func (f *DefaultLimiterFactory) GetLimiter(scope, identifier, rateLimitType string, cache *services.Cache) (RateLimiter, error) {
 	policy, exists := cache.GetPolicy(scope, identifier)
 	if !exists {
 		// call the database to get the policy and update the cache
 		return nil, fmt.Errorf("no policy found for scope : %s and identifier : %s", scope, identifier)
 	}
 
-	
-	// Implement logic to create and return the appropriate limiter based on the type and algorithm
-	algo, ok := registry[algorithm]
+	// // Implement logic to create and return the appropriate limiter based on the type and algorithm
+	algo, ok := registry[policy.Algorithm]
 	if !ok {
-		return nil, fmt.Errorf("unsupported algorithm: %s", algorithm)
+		return nil, fmt.Errorf("unsupported algorithm: %s", policy.Algorithm)
 	}
 
-	constructor, ok := algo[limiterType]
+	constructor, ok := algo[rateLimitType]
 	if !ok {
-		return nil, fmt.Errorf("unsupported limiter type: %s", limiterType)
+		return nil, fmt.Errorf("unsupported limiter type: %s", rateLimitType)
 	}
 
-	return constructor(), nil
+	return constructor(policy), nil
 }
