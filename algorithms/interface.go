@@ -6,7 +6,9 @@ import (
 	"goapp/constants"
 	"goapp/services"
 
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
+	"github.com/rs/zerolog"
 )
 
 type RateLimiter interface {
@@ -14,7 +16,7 @@ type RateLimiter interface {
 }
 
 type LimiterFactory interface {
-	GetLimiter(limiterType, algorithm, rateLimitType string, cache *services.Cache) (RateLimiter, error)
+	GetLimiter(ctx context.Context, db *pgxpool.Pool, log zerolog.Logger, scope, identifer, rateLimitType, query string, cache *services.Cache) (RateLimiter, error)
 }
 
 type DefaultLimiterFactory struct{}
@@ -56,8 +58,8 @@ var registry = map[string]map[string]constructor{
 	},
 }
 
-func (f *DefaultLimiterFactory) GetLimiter(scope, identifier, rateLimitType string, cache *services.Cache) (RateLimiter, error) {
-	policy, exists := cache.GetPolicy(scope, identifier)
+func (f *DefaultLimiterFactory) GetLimiter(ctx context.Context, db *pgxpool.Pool, log zerolog.Logger, scope, identifier, rateLimitType, query string, cache *services.Cache) (RateLimiter, error) {
+	policy, exists := cache.GetPolicy(ctx, db, log, scope, identifier, query)
 	if !exists {
 		// call the database to get the policy and update the cache
 		return nil, fmt.Errorf("no policy found for scope : %s and identifier : %s", scope, identifier)
