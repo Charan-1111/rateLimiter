@@ -20,7 +20,12 @@ type FixedCounterRedis struct {
 	capacity int64
 }
 
-func NewFixedWindowCounter(window time.Duration, capacity int64) *FixedCounterRedis {
+func NewFixedWindowCounter(windowStr string, capacity int64) *FixedCounterRedis {
+	window, err := time.ParseDuration(windowStr)
+	if err != nil {
+		fmt.Println("Error parsing the duration")
+	}
+	
 	return &FixedCounterRedis{
 		window:   window,
 		capacity: capacity,
