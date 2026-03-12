@@ -35,7 +35,7 @@ func (c *Cache) LoadCache(ctx context.Context, log zerolog.Logger, db *pgxpool.P
 	c.data = FetchPolicies(ctx, db, log, query)
 }
 
-func (c *Cache) GetPolicy(scope, identifier string) (*PolicySchema, bool) {
+func (c *Cache) GetPolicy(ctx context.Context, db *pgxpool.Pool, log zerolog.Logger, scope, identifier, query string) (*PolicySchema, bool) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
@@ -43,7 +43,7 @@ func (c *Cache) GetPolicy(scope, identifier string) (*PolicySchema, bool) {
 	policy, exists := c.data[cacheKey]
 	if !exists {
 		// Fetch from the database
-		
+		policy, exists = FetchPolicyByKey(ctx, db, log, query, cacheKey)
 	}
 	return policy, exists
 }
