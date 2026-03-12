@@ -11,6 +11,7 @@ func (cfg *ConfigHandler) GetLimiter(c *fiber.Ctx) error {
 	queries := c.Queries()
 	scope := queries[constants.KeyScope]
 	identifier := queries[constants.KeyIdentifier]
+	rateLimitType := queries[constants.KeyRateLimitType]
 	
 	// validate the limiter type and algorithm
 	if scope == "" || identifier == "" {
@@ -19,6 +20,6 @@ func (cfg *ConfigHandler) GetLimiter(c *fiber.Ctx) error {
 		})
 	}
 
-	logic.GetLimiter(cfg.rdb, cfg.factory, cfg.cache, scope, identifier)
+	logic.GetLimiter(c.Context(), cfg.db, cfg.rdb, cfg.config, cfg.log, cfg.factory, cfg.cache, scope, identifier, rateLimitType)
 	return nil
 }
