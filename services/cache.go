@@ -44,6 +44,10 @@ func (c *Cache) GetPolicy(ctx context.Context, db *pgxpool.Pool, log zerolog.Log
 	if !exists {
 		// Fetch from the database
 		policy, exists = FetchPolicyByKey(ctx, db, log, query, cacheKey)
+		// store in the cache
+		if exists {
+			c.data[cacheKey] = policy
+		}
 	}
 	return policy, exists
 }
