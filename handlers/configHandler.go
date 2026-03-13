@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"goapp/algorithms"
 	"goapp/services"
 	"goapp/utils"
@@ -11,6 +12,7 @@ import (
 )
 
 type ConfigHandler struct {
+	ctx     context.Context
 	config  *utils.Config
 	log     zerolog.Logger
 	db      *pgxpool.Pool
@@ -19,8 +21,9 @@ type ConfigHandler struct {
 	factory algorithms.LimiterFactory
 }
 
-func NewConfigHandler(config *utils.Config, log zerolog.Logger, db *pgxpool.Pool, rdb *redis.Client, factory algorithms.LimiterFactory, cache *services.Cache) *ConfigHandler {
+func NewConfigHandler(ctx context.Context, config *utils.Config, log zerolog.Logger, db *pgxpool.Pool, rdb *redis.Client, factory algorithms.LimiterFactory, cache *services.Cache) *ConfigHandler {
 	return &ConfigHandler{
+		ctx:     ctx,
 		config:  config,
 		log:     log,
 		db:      db,
