@@ -15,6 +15,7 @@ import (
 )
 
 type Application struct {
+	ctx     context.Context
 	config  *utils.Config
 	log     zerolog.Logger
 	db      *pgxpool.Pool
@@ -24,6 +25,8 @@ type Application struct {
 }
 
 func NewApplication(filePath string) (*Application, error) {
+	ctx := context.Background()
+
 	// Initiating the log
 	log := logger.InitLogger()
 
@@ -49,6 +52,7 @@ func NewApplication(filePath string) (*Application, error) {
 	cache := services.NewCache()
 
 	return &Application{
+		ctx:     ctx,
 		config:  config,
 		log:     log,
 		db:      db,
@@ -60,10 +64,10 @@ func NewApplication(filePath string) (*Application, error) {
 
 func (app *Application) StartServer() error {
 	// create the tables
-	store.CreateTables(context.Background(), app.db, app.log, app.config.Tables)
+	store.CreateTables(app.ctx, app.db, app.log, app.config.Tables)
 
 	// Load the cache
-	app.cache.LoadCache(context.Background(), app.log, app.db, app.config.Queries.Fetch.FetchPolicies)
+	app.cache.LoadCache(app.ctx, app.log, app.db, app.config.Queries.Fetch.FetchPolicies)
 
 	// Start fiber server
 	app.StartFiberServer()
