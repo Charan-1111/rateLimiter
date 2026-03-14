@@ -5,10 +5,12 @@ import (
 	"errors"
 	"fmt"
 	"goapp/constants"
+	"goapp/services"
 	"sync"
 	"time"
 
 	"github.com/redis/go-redis/v9"
+	"github.com/rs/zerolog"
 )
 
 type LeakyBucketStore struct {
@@ -32,7 +34,7 @@ func NewLeakyBucketMem(capacity, leakRate float64) *LeakyBucket {
 	}
 }
 
-func (lb *LeakyBucket) Allow(ctx context.Context, rdb *redis.Client, tenantId, userId string) (bool, error) {
+func (lb *LeakyBucket) Allow(ctx context.Context, rdb *redis.Client, cb *services.CircuitBreaker, log zerolog.Logger, tenantId, userId string) (bool, error) {
 	lb.mu.Lock()
 	defer lb.mu.Unlock()
 
