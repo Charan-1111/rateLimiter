@@ -30,3 +30,15 @@ func FetchPolicies(ctx context.Context, db *pgxpool.Pool, log zerolog.Logger, qu
 
 	return data
 }
+
+
+func FetchPolicyByKey(ctx context.Context, db *pgxpool.Pool, log zerolog.Logger, query, cacheKey string) (*PolicySchema, bool) {
+	var policy *PolicySchema
+	err := db.QueryRow(ctx, query, cacheKey).Scan(&policy)
+	if err != nil {
+		log.Error().Err(err).Msg("Error fetching policy by key from the database")
+		return nil, false
+	}
+
+	return policy, true
+}

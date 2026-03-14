@@ -16,11 +16,12 @@
     "port": "6379"
   },
   "tables": {
-    "rateLimitPolicies": "CREATE TABLE IF NOT EXISTS rateLimitPolicies(id SERIAL PRIMARY KEY, policySchema JSONB NOT NULL, updatedAt TIMESTAMP NOT NULL DEFAULT NOW())"
+    "rateLimitPolicies": "CREATE TABLE IF NOT EXISTS rateLimitPolicies(policyKey VARCHAR(50) PRIMARY KEY, policySchema JSONB NOT NULL, updatedAt TIMESTAMP NOT NULL DEFAULT NOW())"
   },
   "queries" : {
     "fetch" : {
-      "fetchPolicies" : "SELECT policySchema FROM rateLimitPolicies"
+      "fetchPolicies" : "SELECT policySchema FROM rateLimitPolicies",
+      "fetchPolicyByKey" : "SELECT policySchema FROM rateLimitPolicies WHERE policyKey = $1"
     }
   },
   "maxTokens": 10,

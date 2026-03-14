@@ -5,5 +5,6 @@ type Queries struct {
 }
 
 type Fetch struct {
-	FetchPolicies string `json:"fetchPolicies"`
+	FetchPolicies    string `json:"fetchPolicies"`
+	FetchPolicyByKey string `json:"fetchPolicyByKey"`
 }
