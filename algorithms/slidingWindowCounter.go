@@ -5,10 +5,12 @@ import (
 	"fmt"
 	"goapp/constants"
 	"goapp/lua"
+	"goapp/services"
 	"sync"
 	"time"
 
 	"github.com/redis/go-redis/v9"
+	"github.com/rs/zerolog"
 )
 
 type SlidingWindowStoreRedis struct {
@@ -34,7 +36,7 @@ func NewSlidingWindowCounter(windowStr string, capacity int) *SlidingWindowCount
 	}
 }
 
-func (sc *SlidingWindowCounterRedis) Allow(ctx context.Context, rdb *redis.Client, tenantId, userId string) (bool, error) {
+func (sc *SlidingWindowCounterRedis) Allow(ctx context.Context, rdb *redis.Client, cb *services.CircuitBreaker, log zerolog.Logger, tenantId, userId string) (bool, error) {
 	now := time.Now().UnixMilli()
 
 	windowMs := sc.window.Milliseconds()
@@ -43,12 +45,23 @@ func (sc *SlidingWindowCounterRedis) Allow(ctx context.Context, rdb *redis.Clien
 
 	swcScript := redis.NewScript(lua.GetSlidingWindowScript())
 
-	_, err := swcScript.Run(ctx, rdb, []string{redisKey}, sc.capacity, windowMs, now, 1).Result()
+	// _, err := swcScript.Run(ctx, rdb, []string{redisKey}, sc.capacity, windowMs, now, 1).Result()
+	// if err != nil {
+	// 	fmt.Println("Error calling the sliding window counter script, rejecting the request : ", err)
+	// 	return false, err
+	// } else {
+	// 	fmt.Println("Accepting the request")
+	// }
+
+	_, err := cb.Cb.Execute(func() (any, error) {
+		return swcScript.Run(ctx, rdb, []string{redisKey}, sc.capacity, windowMs, now, 1).Result()
+	})
+
 	if err != nil {
-		fmt.Println("Error calling the sliding window counter script, rejecting the request : ", err)
+		log.Error().Err(err).Msg("Error calling the sliding window counter script, rejecting the request")
 		return false, err
 	} else {
-		fmt.Println("Accepting the request")
+		log.Info().Msg("Accepting the request")
 	}
 	return true, nil
 }
