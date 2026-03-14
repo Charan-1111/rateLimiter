@@ -4,10 +4,12 @@ import (
 	"context"
 	"fmt"
 	"goapp/constants"
+	"goapp/services"
 	"sync"
 	"time"
 
 	"github.com/redis/go-redis/v9"
+	"github.com/rs/zerolog"
 )
 
 type FixedWindowStore struct {
@@ -36,7 +38,7 @@ func NewFixedWindowMem(windowStr string, capacity int) *FixedWindow {
 	}
 }
 
-func (fw *FixedWindow) Allow(ctx context.Context, rdb *redis.Client, tenantId, userId string) (bool, error) {
+func (fw *FixedWindow) Allow(ctx context.Context, rdb *redis.Client, cb *services.CircuitBreaker, log zerolog.Logger, tenantId, userId string) (bool, error) {
 	fw.mu.Lock()
 	defer fw.mu.Unlock()
 
