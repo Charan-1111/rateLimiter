@@ -1,131 +1,81 @@
 # rateLimiter
 
-![Build Status](https://img.shields.io/badge/build-passing-brightgreen) ![Version](https://img.shields.io/badge/version-0.1.0-blue)
+![Build Status](https://img.shields.io/badge/build-passing-brightgreen) ![Version](https://img.shields.io/badge/version-0.1.0-blue) ![Go Version](https://img.shields.io/badge/go-1.25+-blue.svg)
 
-A simple, extensible rate limiting service written in Go.  It supports multiple algorithms (token bucket, leaky bucket, fixed and sliding windows) and can operate either in‑memory or backed by Redis (with Lua scripts).
+A flexible, scalable, and extensible rate limiting service written in Go.
 
-## 🚀 What the project does
+## What the project does
 
-`rateLimiter` exposes an HTTP endpoint that selects and exercises a rate limiting algorithm based on query parameters.  The core library defines a `RateLimiter` interface and a factory for creating implementations; the service layers wire up configuration, Redis, and HTTP handlers.
+`rateLimiter` is a high-performance HTTP service that provides rate limiting capabilities. It exposes an API endpoint to evaluate limits based on dynamic policies. It features multiple rate limiting algorithms (like token bucket and sliding window) which can execute entirely in-memory for minimal latency, or use Redis with Lua scripts for distributed environments. The application utilizes the Fiber web framework, PostgreSQL for policy configuration, and provides a customizable plugin-based architecture.
 
-## 💡 Why it's useful
+## Why the project is useful
 
-- **Flexible algorithms:** Token bucket, leaky bucket, fixed‑window and sliding‑window counters are all available.
-- **Pluggable storage:** Choose in‑process memory for ultra‑low latency or Redis for distributed usage with atomic Lua scripts.
-- **Simple API:** One endpoint lets you request a limiter by type and algorithm, making it easy to integrate in tests or as a library.
-- **Educational:** Great reference for learning rate limiting techniques and how to combine Go, Fiber, and Redis.
+Building reliable systems requires effective traffic control. `rateLimiter` is useful because it offers:
 
-## 🛠️ Getting started
+- **Multiple Algorithms**: Supports Token Bucket, Leaky Bucket, Fixed Window Counter, and Sliding Window Counter out of the box.
+- **Pluggable Storage Backends**: Choose between ultra-fast in-memory processing or robust distributed coordination via Redis.
+- **Dynamic Configuration**: Rate limiting policies are effectively managed through a PostgreSQL database and internally cached, allowing limits to be updated seamlessly.
+- **Resiliency Patterns**: Integrated with `gobreaker` for circuit breaking to protect related services and storage calls.
+
+## How users can get started
 
 ### Prerequisites
 
-- Go 1.20+ installed (`go env`)
-- Redis server if you plan to use the Redis-backed limiters
+- [Go](https://golang.org/) 1.25 or greater
+- [Redis](https://redis.io/) (for the distributed limiting backend)
+- [PostgreSQL](https://www.postgresql.org/) (for storing policies)
 
-### Clone the repo
+### Installation
+
+1. **Clone the repository:**
+   ```bash
+   git clone https://github.com/your-org/rateLimiter.git
+   cd rateLimiter
+   ```
+
+2. **Configuration:**
+   Update the `manifest/config.json` file with your database, Redis, and server details. Ensure the `rateLimitPolicies` table exists in your Postgres database:
+   ```json
+   {
+     "ports": { "fiberServer": ":8000" },
+     "database": {
+       "username": "admin",
+       "password": "admin123",
+       "host": "localhost",
+       "port": "5432",
+       "databaseName": "testdb"
+     },
+     "redis": { "host": "localhost", "port": "6379" }
+   }
+   ```
+
+3. **Build and Run:**
+   ```bash
+   go mod tidy
+   go build -o ratelimiter main.go
+   ./ratelimiter
+   ```
+
+### Usage Example
+
+The server exposes a main rate-limiting validation endpoint `/api/v1/limiter`. You can query it using `curl`:
 
 ```bash
-git clone https://github.com/your-org/rateLimiter.git
-cd rateLimiter
+curl "http://localhost:8000/api/v1/limiter?scope=api&identifier=user_123&type=memory"
 ```
 
-### Configuration
+*Note: Ensure you have populated your `rateLimitPolicies` table in Postgres for the given `scope` and `identifier` prior to making rate-limiting requests.*
 
-Edit `manifest/config.json` to point at your Redis host/port and set desired token parameters:
+## Where users can get help
 
-```json
-{
-  "ports": { "fiberServer": ":8080" },
-  "redis": { "host": "localhost", "port": "6379" },
-  "maxTokens": 10,
-  "refillRate": 1
-}
-```
+- Detailed algorithm implementations can be found in the [`algorithms/`](algorithms/) directory.
+- Database schemas and queries are specified in [`manifest/config.json`](manifest/config.json).
+- Refer to the performance benchmarks in the [`benchmarkReports/`](benchmarkReports/) folder for memory vs Redis latency and throughput comparisons.
 
-### Build and run
+If you encounter issues or have questions, please check our Issue Tracker or open a new issue.
 
-```bash
-go build -o ratelimiter
-./ratelimiter
-```
+## Who maintains and contributes
 
-The server will start on the configured port.
+This project is maintained by **Leela Guru Charan Avvaru** (charanavvaru11@gmail.com) and our open-source community.
 
-### Usage example
-
-Query the `/api/v1/limiter` endpoint with `type` and `algo` parameters:
-
-```bash
-curl "http://localhost:8080/api/v1/limiter?type=memory&algo=token_bucket"
-```
-
-> The handler currently just invokes the limiter once and prints results to stdout; extend it for production use.
-
-### Running benchmarks
-
-Benchmark scripts under `benchmarkReports` show performance when using in‑memory versus Redis.  See `token_bucket_mem.txt` and `token_bucket_redis.txt` for sample output.
-
-#### Sample results
-
-##### In‑memory limiter (`token_bucket_mem.txt`)
-
-```
-Summary:
-  Total:	2.4820 secs
-  Slowest:	0.2402 secs
-  Fastest:	0.0002 secs
-  Average:	0.0238 secs
-  Requests/sec:	4029.0574
-  
-
-... (truncated for brevity; full report is available in `benchmarkReports/token_bucket_mem.txt`)
-```
-
-##### Redis + Lua limiter (`token_bucket_redis.txt`)
-
-```
-Summary:
-  Total:	12.6388 secs
-  Slowest:	0.8464 secs
-  Fastest:	0.0016 secs
-  Average:	0.1238 secs
-  Requests/sec:	791.2162
-  
-
-... (truncated for brevity; full report is available in `benchmarkReports/token_bucket_redis.txt`)
-```
-
-These numbers illustrate the performance gap between local and networked implementations; run the benchmarks yourself against your environment to validate.
-
-#### High‑level comparison
-
-| Algorithm       | Metric          | In‑Memory         | Redis + Lua       |
-|----------------|-----------------|-------------------|-------------------|
-| Token bucket   | Avg latency     | 23 ms             | 124 ms            |
-|                | Requests/sec    | 4 029             | 791               |
-| Leaky bucket   | Avg latency     | 4 ms              | 71 ms             |
-|                | Requests/sec    | 22 329            | 1 377             |
-| Fixed window   | Avg latency     | 28 ms             | 95 ms             |
-|                | Requests/sec    | 3 518             | 1 012             |
-| Sliding window | Avg latency     | 98 ms             | 125 ms            |
-|                | Requests/sec    | 970               | 777               |
-
-*Latency rounded to nearest millisecond; see individual reports in `benchmarkReports/` for full distributions.*
-
-These figures make it clear that the in‑memory limiters consistently outperform their Redis‑backed counterparts, often by an order of magnitude.  Use the table as a quick reference when deciding which backend to deploy.
-
-## 📚 Documentation & support
-
-- See the `algorithms/` package for implementation details of each limiter.
-- Lua scripts used with Redis are in `lua/`.
-- Configuration loading is handled by `utils/`.
-
-For questions or help, open an issue or check the project wiki (link to your repo).
-
-## 🤝 Contributing
-
-Contributions are welcome!  Please read [`CONTRIBUTING.md`](CONTRIBUTING.md) for guidelines on reporting issues, writing tests, and submitting PRs.
-
-## 🧑‍💻 Maintainers
-
-Maintained by **Leela Guru Charan Avvaru** (charanavvaru11@gmail.com) and the open‑source community.
+We welcome contributions! Please review our [Contributing Guidelines](CONTRIBUTING.md) to learn how to propose bugfixes and improvements, and how to format your code before submitting a Pull Request.
