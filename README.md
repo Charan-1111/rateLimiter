@@ -83,6 +83,13 @@ This mechanism protects the application and its downstream dependencies (like Re
 
 If you encounter issues or have questions, please check our Issue Tracker or open a new issue.
 
+## Trade-offs
+
+When configuring and using `rateLimiter`, consider the following trade-offs based on the chosen algorithms and storage backends:
+
+- **Accuracy vs Memory**: Storing exact timestamps for every request (e.g., Sliding Window Log) provides 100% accuracy but consumes significantly more memory. Counter-based approaches (e.g., Sliding Window Counter or Token Bucket) approximate the rate and are highly memory-efficient, making them better suited for high-throughput scenarios.
+- **Latency vs Consistency**: Using the local in-memory store offers ultra-low, sub-millisecond latency but sacrifices strict global consistency in a distributed, multi-instance deployment. Conversely, using Redis ensures strict global consistency across all application instances but introduces network latency for every rate-limit evaluation.
+
 ## Future Work
 
 See the [Future Work](future_work.md) document for a list of planned features and enhancements.
