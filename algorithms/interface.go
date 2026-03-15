@@ -4,7 +4,9 @@ import (
 	"context"
 	"fmt"
 	"goapp/constants"
+	"goapp/metrics"
 	"goapp/services"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
@@ -13,6 +15,30 @@ import (
 
 type RateLimiter interface {
 	Allow(ctx context.Context, rdb *redis.Client, cb *services.CircuitBreaker, log zerolog.Logger, tenantId string, userId string) (bool, error)
+}
+
+type metricsLimiter struct {
+	base RateLimiter
+	algo string
+}
+
+func (m *metricsLimiter) Allow(ctx context.Context, rdb *redis.Client, cb *services.CircuitBreaker, log zerolog.Logger, tenantId string, userId string) (bool, error) {
+	start := time.Now()
+	allowed, err := m.base.Allow(ctx, rdb, cb, log, tenantId, userId)
+	duration := time.Since(start).Seconds()
+
+	metrics.RequestsLatency.Observe(duration)
+
+	status := "allowed"
+	if err != nil {
+		status = "error"
+	} else if !allowed {
+		status = "denied"
+	}
+
+	metrics.Requests.WithLabelValues(status, m.algo).Inc()
+
+	return allowed, err
 }
 
 type LimiterFactory interface {
@@ -76,5 +102,9 @@ func (f *DefaultLimiterFactory) GetLimiter(ctx context.Context, db *pgxpool.Pool
 		return nil, fmt.Errorf("unsupported limiter type: %s", rateLimitType)
 	}
 
-	return constructor(policy), nil
+	limiter := constructor(policy)
+	return &metricsLimiter{
+		base: limiter,
+		algo: policy.Algorithm,
+	}, nil
 }
