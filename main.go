@@ -1,21 +1,24 @@
 package main
 
 import (
-	"fmt"
-
+	"goapp/metrics"
 	"goapp/server"
+
+	"github.com/gofiber/fiber/v2/log"
 )
 
 func main() {
+	metrics.InitMetrics()
+
 	filePath := "manifest/config.json"
 	app, err := server.NewApplication(filePath)
 	if err != nil {
-		fmt.Println("Error creating the application, retrying...")
+		log.Error("Errro creating the application, retrying...")
 		return
 	}
 
 	err = app.StartServer()
 	if err != nil {
-		
+		log.Error("Error starting the server")
 	}
 }
