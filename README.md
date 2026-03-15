@@ -76,7 +76,7 @@ If you encounter issues or have questions, please check our Issue Tracker or ope
 
 ## Future Work
 
-See the [Future Work](future_work.md) document for a list of planned features and enhancements.
+See the [Future Work](futureWork.md) document for a list of planned features and enhancements.
 
 ## Who maintains and contributes
 
