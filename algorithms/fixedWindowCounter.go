@@ -34,12 +34,12 @@ func NewFixedWindowCounter(windowStr string, capacity int64) *FixedCounterRedis 
 	}
 }
 
-func (fc *FixedCounterRedis) Allow(ctx context.Context, rdb *redis.Client, cb *services.CircuitBreaker, log zerolog.Logger, tenandId, userId string) (bool, error) {
+func (fc *FixedCounterRedis) Allow(ctx context.Context, rdb *redis.Client, cb *services.CircuitBreaker, log zerolog.Logger, tenantId, userId string) (bool, error) {
 	now := time.Now().UnixNano()
 
 	window := fc.window.Microseconds()
 
-	redisKey := fmt.Sprintf("%s:%s:%s:%s", constants.KeyRateLimit, constants.AlgorithmFixedWindow, tenandId, userId)
+	redisKey := fmt.Sprintf("%s:%s:%s:%s", constants.KeyRateLimit, constants.AlgorithmFixedWindow, tenantId, userId)
 
 	fwcScript := redis.NewScript(lua.GetFixedWindowCounterScript())
 
