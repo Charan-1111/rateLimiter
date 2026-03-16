@@ -56,7 +56,7 @@ func (fc *FixedCounterRedis) Allow(ctx context.Context, rdb *redis.Client, cb *s
 	})
 
 	if err != nil {
-		log.Error().Err(err).Msg("Error calling the fixed window couter script, rejecting the request")
+		log.Error().Err(err).Msg("Error calling the fixed window counter script, rejecting the request")
 		return false, err
 	} else {
 		log.Info().Msg("Accepting the request")
