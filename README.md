@@ -34,7 +34,7 @@ Building reliable systems requires effective traffic control. `rateLimiter` is u
    ```
 
 2. **Configuration:**
-   Update the `manifest/config.json` file with your database, Redis, and server details. Ensure the `rateLimitPolicies` table exists in your Postgres database:
+   Update the `deploy/config.json` file with your database, Redis, and server details. Ensure the `rateLimitPolicies` table exists in your Postgres database:
    ```json
    {
      "ports": { "fiberServer": ":8000" },
@@ -45,7 +45,7 @@ Building reliable systems requires effective traffic control. `rateLimiter` is u
        "port": "<databasePort>",
        "databaseName": "<databaseName>"
      },
-     "redis": { "host": "localhost", "port": "6379" }
+     "redis": { "host": "<redisHost>", "port": "<redisPort>" }
    }
    ```
 
