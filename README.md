@@ -83,12 +83,13 @@ This mechanism protects the application and its downstream dependencies (like Re
 
 If you encounter issues or have questions, please check our Issue Tracker or open a new issue.
 
-## Trade-offs
+## Trade-offs and Architecture
 
-When configuring and using `rateLimiter`, consider the following trade-offs based on the chosen algorithms and storage backends:
+When configuring and using `rateLimiter`, consider the following architectural choices based on the algorithms and storage backends:
 
 - **Accuracy vs Memory**: Storing exact timestamps for every request (e.g., Sliding Window Log) provides 100% accuracy but consumes significantly more memory. Counter-based approaches (e.g., Sliding Window Counter or Token Bucket) approximate the rate and are highly memory-efficient, making them better suited for high-throughput scenarios.
-- **Latency vs Consistency**: Using the local in-memory store offers ultra-low, sub-millisecond latency but sacrifices strict global consistency in a distributed, multi-instance deployment. Conversely, using Redis ensures strict global consistency across all application instances but introduces network latency for every rate-limit evaluation.
+- **Latency vs Consistency (Algorithms)**: Using the local in-memory store for algorithms offers ultra-low, sub-millisecond latency but sacrifices strict global consistency in a distributed, multi-instance deployment. Conversely, using Redis algorithms ensures strict global consistency across all application instances but introduces network latency for every rate-limit evaluation.
+- **Policy Engine Caching**: To dynamically fetch rate limit configurations without hammering the PostgreSQL database, `rateLimiter` aggressively caches the database `PolicySchemas` locally in memory using [**Dgraph's Ristretto**](https://github.com/dgraph-io/ristretto). *Note: Ristretto is strictly used to cache the database rules, it does not store the algorithmic request counters.* Read our deep-dive on [Why We Chose Ristretto](documentation/ristretto.md) for more details on resolving lock-contention, TTL management, and TinyLFU eviction rules!
 
 ## Future Work
 
