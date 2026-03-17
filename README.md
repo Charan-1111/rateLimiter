@@ -92,10 +92,10 @@ When configuring and using `rateLimiter`, consider the following trade-offs base
 
 ## Future Work
 
-See the [Future Work](futureWork.md) document for a list of planned features and enhancements.
+See the [Future Work](documentation/futureWork.md) document for a list of planned features and enhancements.
 
 ## Who maintains and contributes
 
 This project is maintained by **Leela Guru Charan Avvaru** (charanavvaru11@gmail.com) and our open-source community.
 
-We welcome contributions! Please review our [Contributing Guidelines](CONTRIBUTING.md) to learn how to propose bugfixes and improvements, and how to format your code before submitting a Pull Request.
+We welcome contributions! Please review our [Contributing Guidelines](documentation/CONTRIBUTING.md) to learn how to propose bugfixes and improvements, and how to format your code before submitting a Pull Request.
