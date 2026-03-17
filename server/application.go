@@ -18,14 +18,15 @@ import (
 )
 
 type Application struct {
-	ctx     context.Context
-	config  *utils.Config
-	log     zerolog.Logger
-	db      *pgxpool.Pool
-	rdb     *redis.Client
-	cache   *services.Cache
-	factory algorithms.LimiterFactory
-	cb      *services.CircuitBreaker
+	ctx       context.Context
+	config    *utils.Config
+	log       zerolog.Logger
+	db        *pgxpool.Pool
+	rdb       *redis.Client
+	cache     *services.Cache
+	factory   algorithms.LimiterFactory
+	cb        *services.CircuitBreaker
+	logCloser func()
 }
 
 func NewApplication(filePath string) (*Application, error) {
@@ -33,7 +34,7 @@ func NewApplication(filePath string) (*Application, error) {
 	defer cancel()
 
 	// Initiating the log
-	log := logger.InitLogger()
+	log, logCloser := logger.InitLogger()
 
 	// Load the configuration file
 	config := &utils.Config{}
@@ -58,14 +59,15 @@ func NewApplication(filePath string) (*Application, error) {
 	cb := services.NewCircuitBreaker()
 
 	return &Application{
-		ctx:     ctx,
-		config:  config,
-		log:     log,
-		db:      db,
-		rdb:     rdb,
-		cache:   cache,
-		factory: factory,
-		cb:      cb,
+		ctx:       ctx,
+		config:    config,
+		log:       log,
+		db:        db,
+		rdb:       rdb,
+		cache:     cache,
+		factory:   factory,
+		cb:        cb,
+		logCloser: logCloser,
 	}, nil
 }
 
@@ -106,6 +108,6 @@ func (app *Application) StartFiberServer() {
 		appServer.Shutdown()
 		app.db.Close()
 		app.rdb.Close()
-		logger.CloseLogger()
+		app.logCloser()
 	}
 }
