@@ -2,8 +2,9 @@ package services
 
 import (
 	"context"
-	"sync"
+	"goapp/constants"
 
+	"github.com/dgraph-io/ristretto"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/rs/zerolog"
 )
@@ -18,44 +19,45 @@ type PolicySchema struct {
 }
 
 type Cache struct {
-	mu   sync.RWMutex
-	data map[string]*PolicySchema
+	data *ristretto.Cache
 }
 
 func NewCache() *Cache {
+	c, _ := ristretto.NewCache(&ristretto.Config{
+		NumCounters: 1e6,
+		MaxCost:     1 << 28,
+		BufferItems: 64,
+	})
 	return &Cache{
-		data: make(map[string]*PolicySchema),
+		data: c,
 	}
 }
 
 func (c *Cache) LoadCache(ctx context.Context, log zerolog.Logger, db *pgxpool.Pool, query string) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
+	policies := FetchPolicies(ctx, db, log, query)
 
-	c.data = FetchPolicies(ctx, db, log, query)
+	for policyKey, policy := range policies {
+		c.data.SetWithTTL(policyKey, policy, 1, constants.PolicyCacheDuration)
+	}
 }
 
 func (c *Cache) GetPolicy(ctx context.Context, db *pgxpool.Pool, log zerolog.Logger, scope, identifier, query string) (*PolicySchema, bool) {
 	cacheKey := scope + ":" + identifier
-	
-	c.mu.RLock()
-	policy, exists := c.data[cacheKey]
-	c.mu.RUnlock()
-	
+
+	policy, exists := c.data.Get(cacheKey)
+
 	if !exists {
 		// Fetch from the database
 		policy, exists = FetchPolicyByKey(ctx, db, log, query, cacheKey)
 		// store in the cache
 		if exists {
-			c.mu.Lock()
 			// Double-check locking to avoid overwriting if another goroutine fetched it concurrently
-			if existingPolicy, ok := c.data[cacheKey]; ok {
+			if existingPolicy, ok := c.data.Get(cacheKey); ok {
 				policy = existingPolicy
 			} else {
-				c.data[cacheKey] = policy
+				c.data.SetWithTTL(cacheKey, policy, 1, constants.PolicyCacheDuration)
 			}
-			c.mu.Unlock()
 		}
 	}
-	return policy, exists
+	return policy.(*PolicySchema), exists
 }
