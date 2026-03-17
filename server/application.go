@@ -2,13 +2,15 @@ package server
 
 import (
 	"context"
-	"fmt"
 	"goapp/algorithms"
 	"goapp/constants"
 	"goapp/logger"
 	"goapp/services"
 	"goapp/store"
 	"goapp/utils"
+	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
@@ -83,9 +85,23 @@ func (app *Application) StartServer() error {
 func (app *Application) StartFiberServer() {
 	appServer := app.SetupRoutes()
 
-	if err := appServer.Listen(app.config.Ports.FiberServer); err != nil {
-		fmt.Println("Error starting fiber server:", err)
-	} else {
-		fmt.Println("Fiber server started on port", app.config.Ports.FiberServer)
+	// using the channel to handle the graceful shutdown
+	listenErr := make(chan error)
+	go func() {
+		listenErr <- appServer.Listen(app.config.Ports.FiberServer)
+	}()
+
+	app.log.Info().Msg("Server started listening at port : " + app.config.Ports.FiberServer)
+
+	// waiting for the interrupt signal for graceful shutdowning the server
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
+
+	select {
+	case err := <-listenErr:
+		app.log.Error().Err(err).Msg("Error starting fiber server")
+	case <-quit:
+		app.log.Info().Msg("Graceful shutdown initiated")
+
 	}
 }
