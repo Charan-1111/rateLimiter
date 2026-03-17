@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"goapp/constants"
 	"goapp/services"
+	"goapp/utils"
 	"sync"
 	"time"
 
@@ -34,11 +35,11 @@ func NewLeakyBucketMem(capacity, leakRate float64) *LeakyBucket {
 	}
 }
 
-func (lb *LeakyBucket) Allow(ctx context.Context, rdb *redis.Client, cb *services.CircuitBreaker, log zerolog.Logger, tenantId, userId string) (bool, error) {
+func (lb *LeakyBucket) Allow(ctx context.Context, rdb *redis.Client, cb *services.CircuitBreaker, log zerolog.Logger, scope, identifier string) (bool, error) {
 	lb.mu.Lock()
 	defer lb.mu.Unlock()
 
-	key := fmt.Sprintf("%s:%s:%s:%s", constants.KeyRateLimit, constants.AlgorithmLeakyBucket, tenantId, userId)
+	key := utils.StringBuilder(constants.KeyRateLimit, constants.AlgorithmLeakyBucket, scope, identifier)
 	now := time.Now()
 
 	// Fetch the details from the cache
