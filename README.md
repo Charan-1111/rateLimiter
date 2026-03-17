@@ -78,7 +78,7 @@ This mechanism protects the application and its downstream dependencies (like Re
 ## Where users can get help
 
 - Detailed algorithm implementations can be found in the [`algorithms/`](algorithms/) directory.
-- Database schemas and queries are specified in [`deploy/config.json`](manifest/config.json).
+- Database schemas and queries are specified in [`deploy/config.json`](deploy/config.json).
 - Refer to the performance benchmarks in the [`benchmarkReports/`](benchmarkReports/) folder for memory vs Redis latency and throughput comparisons.
 
 If you encounter issues or have questions, please check our Issue Tracker or open a new issue.
@@ -92,7 +92,7 @@ When configuring and using `rateLimiter`, consider the following trade-offs base
 
 ## Future Work
 
-See the [Future Work](future_work.md) document for a list of planned features and enhancements.
+See the [Future Work](futureWork.md) document for a list of planned features and enhancements.
 
 ## Who maintains and contributes
 
