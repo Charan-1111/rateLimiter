@@ -14,7 +14,7 @@ Building reliable systems requires effective traffic control. `rateLimiter` is u
 
 - **Multiple Algorithms**: Supports Token Bucket, Leaky Bucket, Fixed Window Counter, and Sliding Window Counter out of the box.
 - **Pluggable Storage Backends**: Choose between ultra-fast in-memory processing or robust distributed coordination via Redis.
-- **Dynamic Configuration  **: Rate limiting policies are effectively managed through a PostgreSQL database and internally cached, allowing limits to be updated seamlessly.
+- **Dynamic Configuration**: Rate limiting policies are effectively managed through a PostgreSQL database and internally cached, allowing limits to be updated seamlessly.
 - **Resiliency Patterns**: Integrated with `gobreaker` for circuit breaking to protect related services and storage calls.
 
 ## How users can get started
