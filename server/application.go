@@ -19,6 +19,7 @@ import (
 
 type Application struct {
 	ctx       context.Context
+	cancel    context.CancelFunc
 	config    *utils.Config
 	log       zerolog.Logger
 	db        *pgxpool.Pool
@@ -30,8 +31,7 @@ type Application struct {
 }
 
 func NewApplication(filePath string) (*Application, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), constants.ContextTimeout)
-	defer cancel()
+	ctx, cancel := context.WithCancel(context.Background())
 
 	// Initiating the log
 	log, logCloser := logger.InitLogger()
@@ -40,6 +40,7 @@ func NewApplication(filePath string) (*Application, error) {
 	config := &utils.Config{}
 	if err := config.LoadConfig(filePath); err != nil {
 		log.Error().Err(err).Msg("Error loading the config file")
+		cancel()
 		return nil, err
 	}
 
@@ -60,6 +61,7 @@ func NewApplication(filePath string) (*Application, error) {
 
 	return &Application{
 		ctx:       ctx,
+		cancel:    cancel,
 		config:    config,
 		log:       log,
 		db:        db,
@@ -72,11 +74,14 @@ func NewApplication(filePath string) (*Application, error) {
 }
 
 func (app *Application) StartServer() error {
+	initCtx, initCancel := context.WithTimeout(app.ctx, constants.ContextTimeout)
+	defer initCancel()
+
 	// create the tables
-	store.CreateTables(app.ctx, app.db, app.log, app.config.Tables)
+	store.CreateTables(initCtx, app.db, app.log, app.config.Tables)
 
 	// Load the cache
-	app.cache.LoadCache(app.ctx, app.log, app.db, app.config.Queries.Fetch.FetchPolicies)
+	app.cache.LoadCache(initCtx, app.log, app.db, app.config.Queries.Fetch.FetchPolicies)
 
 	// Start fiber server
 	app.StartFiberServer()
@@ -105,6 +110,7 @@ func (app *Application) StartFiberServer() {
 	case <-quit:
 		app.log.Info().Msg("Graceful shutdown initiated")
 		// gracefully shutting down every dependencies
+		app.cancel()
 		appServer.Shutdown()
 		app.db.Close()
 		app.rdb.Close()
