@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"goapp/constants"
 	"goapp/lua"
+	"goapp/models"
 	"goapp/services"
 	"goapp/utils"
 	"time"
@@ -35,7 +36,7 @@ func NewFixedWindowCounter(windowStr string, capacity int64) *FixedCounterRedis 
 	}
 }
 
-func (fc *FixedCounterRedis) Allow(ctx context.Context, rdb *redis.Client, cb *services.CircuitBreaker, log zerolog.Logger, scope, identifier string) (bool, error) {
+func (fc *FixedCounterRedis) Allow(ctx context.Context, rdb *redis.Client, cb *services.CircuitBreaker, log zerolog.Logger, scope, identifier string) (*models.LimiterResponse, error) {
 	now := time.Now().UnixNano()
 
 	window := fc.window.Microseconds()
@@ -44,16 +45,30 @@ func (fc *FixedCounterRedis) Allow(ctx context.Context, rdb *redis.Client, cb *s
 
 	fwcScript := redis.NewScript(lua.GetFixedWindowCounterScript())
 
-	_, err := cb.Cb.Execute(func() (any, error) {
-		return fwcScript.Run(ctx, rdb, []string{redisKey}, fc.capacity, window, now, 1).Result()
+	results, err := cb.Cb.Execute(func() (any, error) {
+		results, err := fwcScript.Run(ctx, rdb, []string{redisKey}, fc.capacity, window, now, 1).Result()
+		return results, err
 	})
+
+	allowed := results.([]any)[0].(bool)
+	tokens := results.([]any)[1].(int64)
+
+	retryAfter := now + (fc.window.Microseconds() - tokens)
 
 	if err != nil {
 		log.Error().Err(err).Msg("Error calling the fixed window counter script, rejecting the request")
-		return false, err
+		return &models.LimiterResponse{
+			Allowed:       false,
+			RetryAfter:    int64(retryAfter),
+			CurrentTokens: int64(tokens),
+		}, err
 	} else {
 		log.Info().Msg("Accepting the request")
 	}
 
-	return true, nil
+	return &models.LimiterResponse{
+		Allowed:       allowed,
+		RetryAfter:    int64(retryAfter),
+		CurrentTokens: int64(tokens),
+	}, nil
 }
