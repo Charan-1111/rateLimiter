@@ -23,8 +23,11 @@ const (
 	AlgorithmSlidingWindow = "sliding_window"
 
 	// Timeouts
-	ContextTimeout = 5 * time.Second
-	CircuitBreakerInterval = 10 * time.Second
-	CircuitBreakerTimeout = 30 * time.Second
+	ContextTimeout               = 5 * time.Second
+	CircuitBreakerInterval       = 10 * time.Second
+	CircuitBreakerTimeout        = 30 * time.Second
 	ConsecutiveFailuresThreshold = 5
+
+	// Cache details
+	PolicyCacheDuration = 5 * time.Minute
 )
