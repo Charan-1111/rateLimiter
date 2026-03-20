@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"goapp/constants"
 	"goapp/lua"
+	"goapp/models"
 	"goapp/services"
 	"goapp/utils"
 	"sync"
@@ -37,7 +38,7 @@ func NewSlidingWindowCounter(windowStr string, capacity int) *SlidingWindowCount
 	}
 }
 
-func (sc *SlidingWindowCounterRedis) Allow(ctx context.Context, rdb *redis.Client, cb *services.CircuitBreaker, log zerolog.Logger, scope, identifier string) (bool, error) {
+func (sc *SlidingWindowCounterRedis) Allow(ctx context.Context, rdb *redis.Client, cb *services.CircuitBreaker, log zerolog.Logger, scope, identifier string) (*models.LimiterResponse, error) {
 	now := time.Now().UnixMilli()
 
 	windowMs := sc.window.Milliseconds()
@@ -46,23 +47,30 @@ func (sc *SlidingWindowCounterRedis) Allow(ctx context.Context, rdb *redis.Clien
 
 	swcScript := redis.NewScript(lua.GetSlidingWindowScript())
 
-	// _, err := swcScript.Run(ctx, rdb, []string{redisKey}, sc.capacity, windowMs, now, 1).Result()
-	// if err != nil {
-	// 	fmt.Println("Error calling the sliding window counter script, rejecting the request : ", err)
-	// 	return false, err
-	// } else {
-	// 	fmt.Println("Accepting the request")
-	// }
+	results, err := cb.Cb.Execute(func() (any, error) {
+		results, err := swcScript.Run(ctx, rdb, []string{redisKey}, sc.capacity, windowMs, now, 1).Result()
 
-	_, err := cb.Cb.Execute(func() (any, error) {
-		return swcScript.Run(ctx, rdb, []string{redisKey}, sc.capacity, windowMs, now, 1).Result()
+		return results, err
 	})
+
+	allowed := results.([]any)[0].(bool)
+	tokens := results.([]any)[1].(int64)
+
+	retryAfter := now + (windowMs - tokens)
 
 	if err != nil {
 		log.Error().Err(err).Msg("Error calling the sliding window counter script, rejecting the request")
-		return false, err
+		return &models.LimiterResponse{
+			Allowed:       false,
+			RetryAfter:    int64(retryAfter),
+			CurrentTokens: int64(tokens),
+		}, err
 	} else {
 		log.Info().Msg("Accepting the request")
 	}
-	return true, nil
+	return &models.LimiterResponse{
+		Allowed:       allowed,
+		RetryAfter:    int64(retryAfter),
+		CurrentTokens: int64(tokens),
+	}, nil
 }
