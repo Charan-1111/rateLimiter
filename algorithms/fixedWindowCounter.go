@@ -44,14 +44,6 @@ func (fc *FixedCounterRedis) Allow(ctx context.Context, rdb *redis.Client, cb *s
 
 	fwcScript := redis.NewScript(lua.GetFixedWindowCounterScript())
 
-	// _, err := fwcScript.Run(ctx, rdb, []string{redisKey}, fc.capacity, window, now, 1).Result()
-	// if err != nil {
-	// 	fmt.Println("Error calling the fixed window counter script, rejecting the request : ", err)
-	// 	return false, err
-	// } else {
-	// 	fmt.Println("Accepting the request")
-	// }
-
 	_, err := cb.Cb.Execute(func() (any, error) {
 		return fwcScript.Run(ctx, rdb, []string{redisKey}, fc.capacity, window, now, 1).Result()
 	})
