@@ -43,7 +43,7 @@ func GetLeakyBucketScript() string {
 	local ttl = math.ceil((capacity / leak_rate) * 2)
 	redis.call("EXPIRE", key, ttl)
 
-	return {allowed}
+	return {allowed, tokens}
 	`
 
 	return script
