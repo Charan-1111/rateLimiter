@@ -92,7 +92,7 @@ If you encounter issues or have questions, please check our Issue Tracker or ope
 
 ## Architecture and Trade-offs
 
-![Architecture Diagram](documentation/Architecture.png)
+![Architecture Diagram](documentation/Architecture.jpeg)
 
 When configuring and using `rateLimiter`, consider the following architectural choices based on the algorithms and storage backends:
 
