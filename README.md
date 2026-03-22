@@ -67,7 +67,7 @@ curl "http://localhost:8000/api/v1/limiter?scope=api&identifier=user_123&type=me
 **Example Response (200 OK):**
 ```json
 {
-  "message": "Request allowed",
+  "allowed": true,
   "retryAfter": 0,
   "remaining": 99
 }
@@ -76,7 +76,7 @@ curl "http://localhost:8000/api/v1/limiter?scope=api&identifier=user_123&type=me
 **Example Response (429 Too Many Requests):**
 ```json
 {
-  "error": "Too Many Requests",
+  "allowed": false,
   "retryAfter": 60,
   "remaining": 0
 }

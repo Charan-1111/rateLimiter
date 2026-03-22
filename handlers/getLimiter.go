@@ -35,16 +35,8 @@ func (cfg *ConfigHandler) GetLimiter(c *fiber.Ctx) error {
 	c.Set("X-RateLimit-Retry-After", strconv.FormatInt(allowed.RetryAfter, 10))
 
 	if !allowed.Allowed {
-		return c.Status(fiber.StatusTooManyRequests).JSON(fiber.Map{
-			"error":         "Too Many Requests",
-			"retryAfter":    allowed.RetryAfter,
-			"currentTokens": allowed.RemainingTokens,
-		})
+		return c.Status(fiber.StatusTooManyRequests).JSON(allowed)
 	}
 
-	return c.Status(fiber.StatusOK).JSON(fiber.Map{
-		"message":       "Request allowed",
-		"retryAfter":    allowed.RetryAfter,
-		"currentTokens": allowed.RemainingTokens,
-	})
+	return c.Status(fiber.StatusOK).JSON(allowed)
 }
