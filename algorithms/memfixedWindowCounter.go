@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"goapp/constants"
+	"goapp/models"
 	"goapp/services"
 	"goapp/utils"
 	"sync"
@@ -39,7 +40,7 @@ func NewFixedWindowMem(windowStr string, capacity int) *FixedWindow {
 	}
 }
 
-func (fw *FixedWindow) Allow(ctx context.Context, rdb *redis.Client, cb *services.CircuitBreaker, log zerolog.Logger, scope, identifier string) (bool, error) {
+func (fw *FixedWindow) Allow(ctx context.Context, rdb *redis.Client, cb *services.CircuitBreaker, log zerolog.Logger, scope, identifier string) (*models.LimiterResponse, error) {
 	fw.mu.Lock()
 	defer fw.mu.Unlock()
 
@@ -66,7 +67,11 @@ func (fw *FixedWindow) Allow(ctx context.Context, rdb *redis.Client, cb *service
 
 	if tokenStore.tokens <= 0 {
 		fmt.Println("Request is rejected")
-		return false, nil
+		return &models.LimiterResponse{
+			Allowed:       false,
+			RetryAfter:    0,
+			CurrentTokens: int64(tokenStore.tokens),
+		}, nil
 	}
 
 	tokenStore.tokens -= 1
@@ -75,5 +80,9 @@ func (fw *FixedWindow) Allow(ctx context.Context, rdb *redis.Client, cb *service
 	// store the information in the cache
 	fw.tokens[key] = tokenStore
 
-	return true, nil
+	return &models.LimiterResponse{
+		Allowed:       true,
+		RetryAfter:    0,
+		CurrentTokens: int64(tokenStore.tokens),
+	}, nil
 }

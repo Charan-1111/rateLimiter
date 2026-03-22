@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"goapp/constants"
+	"goapp/models"
 	"goapp/services"
 	"goapp/utils"
 	"sync"
@@ -35,7 +36,7 @@ func NewTokenBucketMem(capacity, fillRate float64) *TokenBucket {
 	}
 }
 
-func (tb *TokenBucket) Allow(ctx context.Context, rdb *redis.Client, cb *services.CircuitBreaker, log zerolog.Logger, scope, identifier string) (bool, error) {
+func (tb *TokenBucket) Allow(ctx context.Context, rdb *redis.Client, cb *services.CircuitBreaker, log zerolog.Logger, scope, identifier string) (*models.LimiterResponse, error) {
 	tb.mu.Lock()
 	defer tb.mu.Unlock()
 
@@ -65,7 +66,11 @@ func (tb *TokenBucket) Allow(ctx context.Context, rdb *redis.Client, cb *service
 	// check if the bucket is empty
 	if tokenStore.tokens == 0 {
 		fmt.Println("Request is getting rejected, bucket is empty")
-		return false, errors.New("Request is getting rejected")
+		return &models.LimiterResponse{
+			Allowed:       false,
+			RetryAfter:    0,
+			CurrentTokens: int64(tokenStore.tokens),
+		}, errors.New("Request is getting rejected")
 	}
 
 	tokenStore.tokens -= 1
@@ -73,5 +78,9 @@ func (tb *TokenBucket) Allow(ctx context.Context, rdb *redis.Client, cb *service
 	// store this in the cache
 	tb.tokens[key] = tokenStore
 
-	return true, nil
+	return &models.LimiterResponse{
+		Allowed:       true,
+		RetryAfter:    0,
+		CurrentTokens: int64(tokenStore.tokens),
+	}, nil
 }

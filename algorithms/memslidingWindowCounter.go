@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"goapp/constants"
+	"goapp/models"
 	"goapp/services"
 	"goapp/utils"
 	"sync"
@@ -40,7 +41,7 @@ func NewSlidingWindowMem(windowStr string, capacity int) *SlidingWindow {
 	}
 }
 
-func (sw *SlidingWindow) Allow(ctx context.Context, rdb *redis.Client, cb *services.CircuitBreaker, log zerolog.Logger, scope, identifier string) (bool, error) {
+func (sw *SlidingWindow) Allow(ctx context.Context, rdb *redis.Client, cb *services.CircuitBreaker, log zerolog.Logger, scope, identifier string) (*models.LimiterResponse, error) {
 	sw.mu.Lock()
 	defer sw.mu.Unlock()
 
@@ -80,7 +81,11 @@ func (sw *SlidingWindow) Allow(ctx context.Context, rdb *redis.Client, cb *servi
 
 	if effectiveCnt >= float64(sw.capacity) {
 		fmt.Println("Request is rejected")
-		return false, nil
+		return &models.LimiterResponse{
+			Allowed:       false,
+			RetryAfter:    0,
+			CurrentTokens: int64(tokens.currentCnt),
+		}, nil
 	}
 
 	tokens.currentCnt += 1
@@ -88,5 +93,9 @@ func (sw *SlidingWindow) Allow(ctx context.Context, rdb *redis.Client, cb *servi
 
 	// store the information in the cache
 	sw.tokens[key] = tokens
-	return true, nil
+	return &models.LimiterResponse{
+		Allowed:       true,
+		RetryAfter:    0,
+		CurrentTokens: int64(tokens.currentCnt),
+	}, nil
 }

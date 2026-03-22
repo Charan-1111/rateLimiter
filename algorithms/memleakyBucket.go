@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"goapp/constants"
+	"goapp/models"
 	"goapp/services"
 	"goapp/utils"
 	"sync"
@@ -35,7 +36,7 @@ func NewLeakyBucketMem(capacity, leakRate float64) *LeakyBucket {
 	}
 }
 
-func (lb *LeakyBucket) Allow(ctx context.Context, rdb *redis.Client, cb *services.CircuitBreaker, log zerolog.Logger, scope, identifier string) (bool, error) {
+func (lb *LeakyBucket) Allow(ctx context.Context, rdb *redis.Client, cb *services.CircuitBreaker, log zerolog.Logger, scope, identifier string) (*models.LimiterResponse, error) {
 	lb.mu.Lock()
 	defer lb.mu.Unlock()
 
@@ -63,7 +64,11 @@ func (lb *LeakyBucket) Allow(ctx context.Context, rdb *redis.Client, cb *service
 	// check if the bukcet is full
 	if tokenStore.tokens >= lb.capacity {
 		fmt.Println("request is getting rejected")
-		return false, errors.New("Request is getting rejected")
+		return &models.LimiterResponse{
+			Allowed:       false,
+			RetryAfter:    0,
+			CurrentTokens: int64(tokenStore.tokens),
+		}, errors.New("Request is getting rejected")
 	}
 
 	tokenStore.tokens += 1
@@ -71,5 +76,9 @@ func (lb *LeakyBucket) Allow(ctx context.Context, rdb *redis.Client, cb *service
 	// store the information in the cache
 	lb.tokens[key] = tokenStore
 
-	return true, nil
+	return &models.LimiterResponse{
+		Allowed:       true,
+		RetryAfter:    0,
+		CurrentTokens: int64(tokenStore.tokens),
+	}, nil
 }

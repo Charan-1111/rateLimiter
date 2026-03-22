@@ -28,13 +28,17 @@ func (cfg *ConfigHandler) GetLimiter(c *fiber.Ctx) error {
 		})
 	}
 
-	if !allowed {
+	if !allowed.Allowed {
 		return c.Status(fiber.StatusTooManyRequests).JSON(fiber.Map{
 			"error": "Too Many Requests",
+			"retryAfter": allowed.RetryAfter,
+			"currentTokens": allowed.CurrentTokens,
 		})
 	}
 
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
 		"message": "Request allowed",
+		"retryAfter": allowed.RetryAfter,
+		"currentTokens": allowed.CurrentTokens,
 	})
 }

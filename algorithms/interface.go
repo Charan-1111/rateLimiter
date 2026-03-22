@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"goapp/constants"
 	"goapp/metrics"
+	"goapp/models"
 	"goapp/services"
 	"time"
 
@@ -14,7 +15,7 @@ import (
 )
 
 type RateLimiter interface {
-	Allow(ctx context.Context, rdb *redis.Client, cb *services.CircuitBreaker, log zerolog.Logger, tenantId string, userId string) (bool, error)
+	Allow(ctx context.Context, rdb *redis.Client, cb *services.CircuitBreaker, log zerolog.Logger, tenantId string, userId string) (*models.LimiterResponse, error)
 }
 
 type metricsLimiter struct {
@@ -22,7 +23,7 @@ type metricsLimiter struct {
 	algo string
 }
 
-func (m *metricsLimiter) Allow(ctx context.Context, rdb *redis.Client, cb *services.CircuitBreaker, log zerolog.Logger, tenantId string, userId string) (bool, error) {
+func (m *metricsLimiter) Allow(ctx context.Context, rdb *redis.Client, cb *services.CircuitBreaker, log zerolog.Logger, tenantId string, userId string) (*models.LimiterResponse, error) {
 	start := time.Now()
 	allowed, err := m.base.Allow(ctx, rdb, cb, log, tenantId, userId)
 	duration := time.Since(start).Seconds()
@@ -32,7 +33,7 @@ func (m *metricsLimiter) Allow(ctx context.Context, rdb *redis.Client, cb *servi
 	status := "allowed"
 	if err != nil {
 		status = "error"
-	} else if !allowed {
+	} else if !allowed.Allowed {
 		status = "denied"
 	}
 
@@ -93,7 +94,7 @@ func (f *DefaultLimiterFactory) GetLimiter(ctx context.Context, db *pgxpool.Pool
 
 	// // Implement logic to create and return the appropriate limiter based on the type and algorithm
 	algo, ok := registry[policy.Algorithm]
-	if !ok { 
+	if !ok {
 		return nil, fmt.Errorf("unsupported algorithm: %s", policy.Algorithm)
 	}
 
