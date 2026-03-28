@@ -2,7 +2,6 @@ package algorithms
 
 import (
 	"context"
-	"fmt"
 	"goapp/constants"
 	"goapp/lua"
 	"goapp/models"
@@ -24,10 +23,10 @@ type FixedCounterRedis struct {
 	capacity int64
 }
 
-func NewFixedWindowCounter(windowStr string, capacity int64) *FixedCounterRedis {
+func NewFixedWindowCounter(windowStr string, capacity int64, log zerolog.Logger) *FixedCounterRedis {
 	window, err := time.ParseDuration(windowStr)
 	if err != nil {
-		fmt.Println("Error parsing the duration")
+		log.Error().Err(err).Msg("Error parsing the duration")
 	}
 
 	return &FixedCounterRedis{

@@ -48,39 +48,39 @@ type LimiterFactory interface {
 
 type DefaultLimiterFactory struct{}
 
-type constructor func(policy *services.PolicySchema) RateLimiter
+type constructor func(policy *services.PolicySchema, log zerolog.Logger) RateLimiter
 
 var registry = map[string]map[string]constructor{
 	constants.AlgorithmTokenBucket: {
-		constants.ValeTypeMemory: func(policy *services.PolicySchema) RateLimiter {
-			return NewTokenBucketMem(float64(policy.Limit), float64(policy.Burst))
+		constants.ValeTypeMemory: func(policy *services.PolicySchema, log zerolog.Logger) RateLimiter {
+			return NewTokenBucketMem(float64(policy.Limit), float64(policy.Burst), log)
 		},
-		constants.ValueTypeRedis: func(policy *services.PolicySchema) RateLimiter {
-			return NewTokenBucket(float64(policy.Limit), float64(policy.Burst))
+		constants.ValueTypeRedis: func(policy *services.PolicySchema, log zerolog.Logger) RateLimiter {
+			return NewTokenBucket(float64(policy.Limit), float64(policy.Burst), log)
 		},
 	},
 	constants.AlgorithmLeakyBucket: {
-		constants.ValeTypeMemory: func(policy *services.PolicySchema) RateLimiter {
-			return NewLeakyBucketMem(float64(policy.Limit), float64(policy.Burst))
+		constants.ValeTypeMemory: func(policy *services.PolicySchema, log zerolog.Logger) RateLimiter {
+			return NewLeakyBucketMem(float64(policy.Limit), float64(policy.Burst), log)
 		},
-		constants.ValueTypeRedis: func(policy *services.PolicySchema) RateLimiter {
-			return NewLeakyBucket(float64(policy.Limit), float64(policy.Burst))
+		constants.ValueTypeRedis: func(policy *services.PolicySchema, log zerolog.Logger) RateLimiter {
+			return NewLeakyBucket(float64(policy.Limit), float64(policy.Burst), log)
 		},
 	},
 	constants.AlgorithmFixedWindow: {
-		constants.ValeTypeMemory: func(policy *services.PolicySchema) RateLimiter {
-			return NewFixedWindowMem(policy.Window, policy.Limit)
+		constants.ValeTypeMemory: func(policy *services.PolicySchema, log zerolog.Logger) RateLimiter {
+			return NewFixedWindowMem(policy.Window, policy.Limit, log)
 		},
-		constants.ValueTypeRedis: func(policy *services.PolicySchema) RateLimiter {
-			return NewFixedWindowCounter(policy.Window, int64(policy.Limit))
+		constants.ValueTypeRedis: func(policy *services.PolicySchema, log zerolog.Logger) RateLimiter {
+			return NewFixedWindowCounter(policy.Window, int64(policy.Limit), log)
 		},
 	},
 	constants.AlgorithmSlidingWindow: {
-		constants.ValeTypeMemory: func(policy *services.PolicySchema) RateLimiter {
-			return NewSlidingWindowMem(policy.Window, policy.Limit)
+		constants.ValeTypeMemory: func(policy *services.PolicySchema, log zerolog.Logger) RateLimiter {
+			return NewSlidingWindowMem(policy.Window, policy.Limit, log)
 		},
-		constants.ValueTypeRedis: func(policy *services.PolicySchema) RateLimiter {
-			return NewSlidingWindowCounter(policy.Window, policy.Limit)
+		constants.ValueTypeRedis: func(policy *services.PolicySchema, log zerolog.Logger) RateLimiter {
+			return NewSlidingWindowCounter(policy.Window, policy.Limit, log)
 		},
 	},
 }
@@ -103,7 +103,7 @@ func (f *DefaultLimiterFactory) GetLimiter(ctx context.Context, db *pgxpool.Pool
 		return nil, fmt.Errorf("unsupported limiter type: %s", rateLimitType)
 	}
 
-	limiter := constructor(policy)
+	limiter := constructor(policy, log)
 	return &metricsLimiter{
 		base: limiter,
 		algo: policy.Algorithm,

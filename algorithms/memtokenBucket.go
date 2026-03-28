@@ -3,7 +3,6 @@ package algorithms
 import (
 	"context"
 	"errors"
-	"fmt"
 	"goapp/constants"
 	"goapp/models"
 	"goapp/services"
@@ -27,7 +26,7 @@ type TokenBucket struct {
 	mu       sync.Mutex
 }
 
-func NewTokenBucketMem(capacity, fillRate float64) *TokenBucket {
+func NewTokenBucketMem(capacity, fillRate float64, log zerolog.Logger) *TokenBucket {
 	return &TokenBucket{
 		capacity: capacity,
 		fillRate: fillRate,
@@ -48,7 +47,7 @@ func (tb *TokenBucket) Allow(ctx context.Context, rdb *redis.Client, cb *service
 	tokenStore, ok := tb.tokens[key]
 	if !ok {
 		// create a new store if this key hasn't been seen before
-		fmt.Println("Not found in the cache")
+		log.Debug().Msg("Token bucket not found in cache, creating new one")
 		tokenStore = &TokenBucketStore{
 			tokens:   tb.capacity,
 			lastFill: now,
@@ -65,7 +64,7 @@ func (tb *TokenBucket) Allow(ctx context.Context, rdb *redis.Client, cb *service
 
 	// check if the bucket is empty
 	if tokenStore.tokens == 0 {
-		fmt.Println("Request is getting rejected, bucket is empty")
+		log.Warn().Str("scope", scope).Msg("Request is getting rejected, bucket is empty")
 		return &models.LimiterResponse{
 			Allowed:         false,
 			RetryAfter:      0,

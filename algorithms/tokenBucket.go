@@ -23,7 +23,7 @@ type TokenBucketRedis struct {
 	RefillRate float64
 }
 
-func NewTokenBucket(maxTokens, refillRate float64) *TokenBucketRedis {
+func NewTokenBucket(maxTokens, refillRate float64, log zerolog.Logger) *TokenBucketRedis {
 	return &TokenBucketRedis{
 		MaxTokens:  maxTokens,
 		RefillRate: float64(refillRate),

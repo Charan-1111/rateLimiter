@@ -4,7 +4,7 @@
   },
   "database": {
     "username": "admin",
-    "password": "",
+    "password": "admin123",
     "host": "dpg-d70ni3aa214c73fif810-a",
     "port": "5432",
     "databaseName": "testdb_u9yn",

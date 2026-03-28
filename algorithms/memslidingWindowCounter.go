@@ -2,7 +2,6 @@ package algorithms
 
 import (
 	"context"
-	"fmt"
 	"goapp/constants"
 	"goapp/models"
 	"goapp/services"
@@ -27,10 +26,10 @@ type SlidingWindow struct {
 	mu       sync.Mutex
 }
 
-func NewSlidingWindowMem(windowStr string, capacity int) *SlidingWindow {
+func NewSlidingWindowMem(windowStr string, capacity int, log zerolog.Logger) *SlidingWindow {
 	window, err := time.ParseDuration(windowStr)
 	if err != nil {
-		fmt.Println("Error parsing the duration")
+		log.Error().Err(err).Msg("Error parsing the duration")
 	}
 
 	return &SlidingWindow{
@@ -80,7 +79,7 @@ func (sw *SlidingWindow) Allow(ctx context.Context, rdb *redis.Client, cb *servi
 	effectiveCnt := float64(tokens.currentCnt) + weight*float64(tokens.previousCnt)
 
 	if effectiveCnt >= float64(sw.capacity) {
-		fmt.Println("Request is rejected")
+		log.Warn().Str("scope", scope).Msg("Request is rejected, threshold exceeded")
 		return &models.LimiterResponse{
 			Allowed:         false,
 			RetryAfter:      0,
@@ -90,7 +89,7 @@ func (sw *SlidingWindow) Allow(ctx context.Context, rdb *redis.Client, cb *servi
 	}
 
 	tokens.currentCnt += 1
-	fmt.Println("Request is allowed")
+	log.Debug().Str("scope", scope).Msg("Request is allowed")
 
 	// store the information in the cache
 	sw.tokens[key] = tokens

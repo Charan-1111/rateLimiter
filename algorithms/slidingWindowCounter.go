@@ -2,7 +2,6 @@ package algorithms
 
 import (
 	"context"
-	"fmt"
 	"goapp/constants"
 	"goapp/lua"
 	"goapp/models"
@@ -26,10 +25,10 @@ type SlidingWindowCounterRedis struct {
 	mu       sync.Mutex
 }
 
-func NewSlidingWindowCounter(windowStr string, capacity int) *SlidingWindowCounterRedis {
+func NewSlidingWindowCounter(windowStr string, capacity int, log zerolog.Logger) *SlidingWindowCounterRedis {
 	window, err := time.ParseDuration(windowStr)
 	if err != nil {
-		fmt.Println("Error parsing the duration")
+		log.Error().Err(err).Msg("Error parsing the duration")
 	}
 
 	return &SlidingWindowCounterRedis{

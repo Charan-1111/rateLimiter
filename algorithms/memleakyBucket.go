@@ -3,7 +3,6 @@ package algorithms
 import (
 	"context"
 	"errors"
-	"fmt"
 	"goapp/constants"
 	"goapp/models"
 	"goapp/services"
@@ -27,7 +26,7 @@ type LeakyBucket struct {
 	mu       sync.Mutex
 }
 
-func NewLeakyBucketMem(capacity, leakRate float64) *LeakyBucket {
+func NewLeakyBucketMem(capacity, leakRate float64, log zerolog.Logger) *LeakyBucket {
 	return &LeakyBucket{
 		capacity: capacity,
 		leakRate: leakRate,
@@ -63,7 +62,7 @@ func (lb *LeakyBucket) Allow(ctx context.Context, rdb *redis.Client, cb *service
 
 	// check if the bukcet is full
 	if tokenStore.tokens >= lb.capacity {
-		fmt.Println("request is getting rejected")
+		log.Warn().Str("scope", scope).Msg("Request is getting rejected, bucket is full")
 		return &models.LimiterResponse{
 			Allowed:         false,
 			RetryAfter:      0,

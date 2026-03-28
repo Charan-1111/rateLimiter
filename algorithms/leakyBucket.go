@@ -25,7 +25,7 @@ type LeakyBucketRedis struct {
 	mu        sync.Mutex
 }
 
-func NewLeakyBucket(maxTokens, leakRate float64) *LeakyBucketRedis {
+func NewLeakyBucket(maxTokens, leakRate float64, log zerolog.Logger) *LeakyBucketRedis {
 	return &LeakyBucketRedis{
 		MaxTokens: maxTokens,
 		LeakRate:  leakRate,

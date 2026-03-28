@@ -3,6 +3,7 @@ package handlers
 import (
 	"goapp/constants"
 	"goapp/logic"
+	"goapp/logger"
 	"strconv"
 
 	"github.com/gofiber/fiber/v2"
@@ -21,7 +22,8 @@ func (cfg *ConfigHandler) GetLimiter(c *fiber.Ctx) error {
 		})
 	}
 
-	allowed, err := logic.GetLimiter(cfg.ctx, cfg.db, cfg.rdb, cfg.config, cfg.log, cfg.factory, cfg.cache, cfg.cb, scope, identifier, rateLimitType)
+	reqLog := logger.GetRequestLogger(c, cfg.log)
+	allowed, err := logic.GetLimiter(cfg.ctx, cfg.db, cfg.rdb, cfg.config, reqLog, cfg.factory, cfg.cache, cfg.cb, scope, identifier, rateLimitType)
 
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{

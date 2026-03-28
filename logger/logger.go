@@ -4,6 +4,7 @@ import (
 	"os"
 	"sync"
 
+	"github.com/gofiber/fiber/v2"
 	"github.com/rs/zerolog"
 )
 
@@ -72,4 +73,9 @@ func InitLogger() (zerolog.Logger, func()) {
 	}
 
 	return log, closer
+}
+
+func GetRequestLogger(c *fiber.Ctx, baseLogger zerolog.Logger) zerolog.Logger {
+	requestID := c.GetRespHeader("X-Request-ID")
+	return baseLogger.With().Str("request_id", requestID).Logger()
 }

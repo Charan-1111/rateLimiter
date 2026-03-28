@@ -2,7 +2,6 @@ package algorithms
 
 import (
 	"context"
-	"fmt"
 	"goapp/constants"
 	"goapp/models"
 	"goapp/services"
@@ -26,10 +25,10 @@ type FixedWindow struct {
 	mu       sync.Mutex
 }
 
-func NewFixedWindowMem(windowStr string, capacity int) *FixedWindow {
+func NewFixedWindowMem(windowStr string, capacity int, log zerolog.Logger) *FixedWindow {
 	window, err := time.ParseDuration(windowStr)
 	if err != nil {
-		fmt.Println("Error parsing the duration")
+		log.Error().Err(err).Msg("Error parsing the duration")
 	}
 
 	return &FixedWindow{
@@ -66,7 +65,7 @@ func (fw *FixedWindow) Allow(ctx context.Context, rdb *redis.Client, cb *service
 	}
 
 	if tokenStore.tokens <= 0 {
-		fmt.Println("Request is rejected")
+		log.Warn().Str("scope", scope).Msg("Request is rejected, bucket empty")
 		return &models.LimiterResponse{
 			Allowed:         false,
 			RetryAfter:      0,
@@ -76,7 +75,7 @@ func (fw *FixedWindow) Allow(ctx context.Context, rdb *redis.Client, cb *service
 	}
 
 	tokenStore.tokens -= 1
-	fmt.Println("Request is allowed")
+	log.Debug().Str("scope", scope).Msg("Request is allowed")
 
 	// store the information in the cache
 	fw.tokens[key] = tokenStore
