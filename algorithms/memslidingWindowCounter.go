@@ -17,13 +17,13 @@ type SlidingWindowStore struct {
 	currentCnt  int
 	previousCnt int
 	windowStart time.Time
+	mu          sync.Mutex
 }
 
 type SlidingWindow struct {
 	capacity int
 	window   time.Duration
-	tokens   map[string]*SlidingWindowStore
-	mu       sync.Mutex
+	tokens   sync.Map
 }
 
 func NewSlidingWindowMem(windowStr string, capacity int, log zerolog.Logger) *SlidingWindow {
@@ -35,28 +35,28 @@ func NewSlidingWindowMem(windowStr string, capacity int, log zerolog.Logger) *Sl
 	return &SlidingWindow{
 		capacity: capacity,
 		window:   window,
-		tokens:   make(map[string]*SlidingWindowStore),
-		mu:       sync.Mutex{},
+		tokens:   sync.Map{},
 	}
 }
 
 func (sw *SlidingWindow) Allow(ctx context.Context, rdb *redis.Client, cb *services.CircuitBreaker, log zerolog.Logger, scope, identifier string) (*models.LimiterResponse, error) {
-	sw.mu.Lock()
-	defer sw.mu.Unlock()
-
 	key := utils.StringBuilder(constants.KeyRateLimit, constants.AlgorithmSlidingWindow, scope, identifier)
 	now := time.Now()
 
 	// fetch the data from the cache
-	tokens, ok := sw.tokens[key]
+	val, ok := sw.tokens.Load(key)
 	if !ok {
 		// allocate and initialize new sliding window state
-		tokens = &SlidingWindowStore{
+		val, _ = sw.tokens.LoadOrStore(key, &SlidingWindowStore{
 			windowStart: now,
 			currentCnt:  0,
 			previousCnt: 0,
-		}
+		})
 	}
+
+	tokens := val.(*SlidingWindowStore)
+	tokens.mu.Lock()
+	defer tokens.mu.Unlock()
 
 	elapsed := now.Sub(tokens.windowStart)
 
@@ -91,8 +91,6 @@ func (sw *SlidingWindow) Allow(ctx context.Context, rdb *redis.Client, cb *servi
 	tokens.currentCnt += 1
 	log.Debug().Str("scope", scope).Msg("Request is allowed")
 
-	// store the information in the cache
-	sw.tokens[key] = tokens
 	return &models.LimiterResponse{
 		Allowed:         true,
 		RetryAfter:      0,

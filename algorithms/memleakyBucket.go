@@ -17,40 +17,40 @@ import (
 type LeakyBucketStore struct {
 	tokens   float64
 	lastLeak time.Time
+	mu       sync.Mutex
 }
 
 type LeakyBucket struct {
 	capacity float64
 	leakRate float64
-	tokens   map[string]*LeakyBucketStore
-	mu       sync.Mutex
+	tokens   sync.Map
 }
 
 func NewLeakyBucketMem(capacity, leakRate float64, log zerolog.Logger) *LeakyBucket {
 	return &LeakyBucket{
 		capacity: capacity,
 		leakRate: leakRate,
-		tokens:   make(map[string]*LeakyBucketStore),
-		mu:       sync.Mutex{},
+		tokens:   sync.Map{},
 	}
 }
 
 func (lb *LeakyBucket) Allow(ctx context.Context, rdb *redis.Client, cb *services.CircuitBreaker, log zerolog.Logger, scope, identifier string) (*models.LimiterResponse, error) {
-	lb.mu.Lock()
-	defer lb.mu.Unlock()
-
 	key := utils.StringBuilder(constants.KeyRateLimit, constants.AlgorithmLeakyBucket, scope, identifier)
 	now := time.Now()
 
 	// Fetch the details from the cache
-	tokenStore, ok := lb.tokens[key]
+	val, ok := lb.tokens.Load(key)
 	if !ok {
 		// allocate a fresh store
-		tokenStore = &LeakyBucketStore{
+		val, _ = lb.tokens.LoadOrStore(key, &LeakyBucketStore{
 			tokens:   0,
 			lastLeak: now,
-		}
+		})
 	}
+
+	tokenStore := val.(*LeakyBucketStore)
+	tokenStore.mu.Lock()
+	defer tokenStore.mu.Unlock()
 
 	// leak the tokens
 	tokenStore.tokens = tokenStore.tokens - (now.Sub(tokenStore.lastLeak).Seconds() * lb.leakRate)
@@ -60,7 +60,7 @@ func (lb *LeakyBucket) Allow(ctx context.Context, rdb *redis.Client, cb *service
 	}
 	tokenStore.lastLeak = now
 
-	// check if the bukcet is full
+	// check if the bucket is full
 	if tokenStore.tokens >= lb.capacity {
 		log.Warn().Str("scope", scope).Msg("Request is getting rejected, bucket is full")
 		return &models.LimiterResponse{
@@ -72,9 +72,6 @@ func (lb *LeakyBucket) Allow(ctx context.Context, rdb *redis.Client, cb *service
 	}
 
 	tokenStore.tokens += 1
-
-	// store the information in the cache
-	lb.tokens[key] = tokenStore
 
 	return &models.LimiterResponse{
 		Allowed:         true,

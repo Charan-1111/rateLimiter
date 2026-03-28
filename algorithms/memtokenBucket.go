@@ -17,42 +17,42 @@ import (
 type TokenBucketStore struct {
 	tokens   float64
 	lastFill time.Time
+	mu       sync.Mutex
 }
 
 type TokenBucket struct {
 	capacity float64
 	fillRate float64
-	tokens   map[string]*TokenBucketStore
-	mu       sync.Mutex
+	tokens   sync.Map
 }
 
 func NewTokenBucketMem(capacity, fillRate float64, log zerolog.Logger) *TokenBucket {
 	return &TokenBucket{
 		capacity: capacity,
 		fillRate: fillRate,
-		tokens:   make(map[string]*TokenBucketStore),
-		mu:       sync.Mutex{},
+		tokens:   sync.Map{},
 	}
 }
 
 func (tb *TokenBucket) Allow(ctx context.Context, rdb *redis.Client, cb *services.CircuitBreaker, log zerolog.Logger, scope, identifier string) (*models.LimiterResponse, error) {
-	tb.mu.Lock()
-	defer tb.mu.Unlock()
-
 	// make the key
 	key := utils.StringBuilder(constants.KeyRateLimit, constants.AlgorithmTokenBucket, scope, identifier)
 	now := time.Now()
 
 	// Fetch from the cache
-	tokenStore, ok := tb.tokens[key]
-	if !ok {
+	val, _ := tb.tokens.Load(key)
+	if val == nil {
 		// create a new store if this key hasn't been seen before
 		log.Debug().Msg("Token bucket not found in cache, creating new one")
-		tokenStore = &TokenBucketStore{
+		val, _ = tb.tokens.LoadOrStore(key, &TokenBucketStore{
 			tokens:   tb.capacity,
 			lastFill: now,
-		}
+		})
 	}
+
+	tokenStore := val.(*TokenBucketStore)
+	tokenStore.mu.Lock()
+	defer tokenStore.mu.Unlock()
 
 	// fill the tokens
 	tokenStore.tokens = tokenStore.tokens + (now.Sub(tokenStore.lastFill).Seconds() * tb.fillRate)
@@ -63,7 +63,7 @@ func (tb *TokenBucket) Allow(ctx context.Context, rdb *redis.Client, cb *service
 	tokenStore.lastFill = now
 
 	// check if the bucket is empty
-	if tokenStore.tokens == 0 {
+	if tokenStore.tokens < 1 {
 		log.Warn().Str("scope", scope).Msg("Request is getting rejected, bucket is empty")
 		return &models.LimiterResponse{
 			Allowed:         false,
@@ -74,9 +74,6 @@ func (tb *TokenBucket) Allow(ctx context.Context, rdb *redis.Client, cb *service
 	}
 
 	tokenStore.tokens -= 1
-
-	// store this in the cache
-	tb.tokens[key] = tokenStore
 
 	return &models.LimiterResponse{
 		Allowed:         true,

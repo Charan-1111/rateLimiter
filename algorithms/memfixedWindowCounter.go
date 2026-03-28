@@ -16,13 +16,13 @@ import (
 type FixedWindowStore struct {
 	windowIndex int
 	tokens      int
+	mu          sync.Mutex
 }
 
 type FixedWindow struct {
 	capacity int
 	window   time.Duration
-	tokens   map[string]*FixedWindowStore
-	mu       sync.Mutex
+	tokens   sync.Map
 }
 
 func NewFixedWindowMem(windowStr string, capacity int, log zerolog.Logger) *FixedWindow {
@@ -34,30 +34,29 @@ func NewFixedWindowMem(windowStr string, capacity int, log zerolog.Logger) *Fixe
 	return &FixedWindow{
 		capacity: capacity,
 		window:   window,
-		tokens:   make(map[string]*FixedWindowStore),
-		mu:       sync.Mutex{},
+		tokens:   sync.Map{},
 	}
 }
 
 func (fw *FixedWindow) Allow(ctx context.Context, rdb *redis.Client, cb *services.CircuitBreaker, log zerolog.Logger, scope, identifier string) (*models.LimiterResponse, error) {
-	fw.mu.Lock()
-	defer fw.mu.Unlock()
-
 	key := utils.StringBuilder(constants.KeyRateLimit, constants.AlgorithmFixedWindow, scope, identifier)
 	now := time.Now()
 
 	currentWindowIdx := int(now.UnixNano() / int64(fw.window))
 
 	// fetch the data from the cache
-
-	tokenStore, ok := fw.tokens[key]
+	val, ok := fw.tokens.Load(key)
 	if !ok {
 		// initialize a new window store
-		tokenStore = &FixedWindowStore{
+		val, _ = fw.tokens.LoadOrStore(key, &FixedWindowStore{
 			windowIndex: currentWindowIdx,
 			tokens:      fw.capacity,
-		}
+		})
 	}
+
+	tokenStore := val.(*FixedWindowStore)
+	tokenStore.mu.Lock()
+	defer tokenStore.mu.Unlock()
 
 	if currentWindowIdx > tokenStore.windowIndex {
 		tokenStore.windowIndex = currentWindowIdx
@@ -76,9 +75,6 @@ func (fw *FixedWindow) Allow(ctx context.Context, rdb *redis.Client, cb *service
 
 	tokenStore.tokens -= 1
 	log.Debug().Str("scope", scope).Msg("Request is allowed")
-
-	// store the information in the cache
-	fw.tokens[key] = tokenStore
 
 	return &models.LimiterResponse{
 		Allowed:         true,
